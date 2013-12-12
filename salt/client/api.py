@@ -50,6 +50,20 @@ class APIClient(object):
         self.resolver = salt.auth.Resolver(self.opts)
         self.event = salt.utils.event.SaltEvent('master', self.opts['sock_dir'])
 
+    def _check_and_handle_argspec(self, cmd):
+        '''
+        Checks if this command is an agrspec request,
+        and calls the appropriate client.
+
+        Argspec requests have `cmd[fun] == 'sys.argspec'`
+        '''
+        if cmd['fun'] == 'sys.argspec':
+            funparts = cmd.get('module', '').split('.')
+            if len(funparts) > 2 and funparts[0] in ['wheel', 'runner']:  # master
+                cmd['client'] = 'master'
+            else:
+                cmd['client'] = 'minion'
+
     def run(self, cmd):
         '''
         Execute the salt command given by cmd dict.
@@ -110,6 +124,9 @@ class APIClient(object):
         if len(funparts) > 2 and funparts[0] in ['wheel', 'runner']:  # master
             client = funparts[0]
             cmd['fun'] = '.'.join(funparts[1:])  # strip prefix
+
+        else:
+            _check_and_handle_argspec(cmd)
 
         if not ('token' in cmd or
                 ('eauth' in cmd and 'password' in cmd and 'username' in cmd)):
