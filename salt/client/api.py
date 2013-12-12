@@ -53,7 +53,7 @@ class APIClient(object):
     def _check_and_handle_argspec(self, cmd):
         '''
         Checks if this command is an agrspec request,
-        and calls the appropriate client.
+        and sets the appropriate client.
 
         Argspec requests have `cmd[fun] == 'sys.argspec'`
         '''
@@ -126,7 +126,7 @@ class APIClient(object):
             cmd['fun'] = '.'.join(funparts[1:])  # strip prefix
 
         else:
-            _check_and_handle_argspec(cmd)
+            self._check_and_handle_argspec(cmd)
 
         if not ('token' in cmd or
                 ('eauth' in cmd and 'password' in cmd and 'username' in cmd)):
