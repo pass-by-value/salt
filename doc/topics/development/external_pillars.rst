@@ -93,7 +93,7 @@ signature:
         # Do init work here
 
 
-**Note**: The ``__init__`` function is ran every time a particular minion causes
+**Note**: The ``__init__`` function runs every time a particular minion causes
 the external pillar to be called, so don't put heavy initialization code here.
 The ``__init__`` functionality is a side-effect of the Salt loader, so it may
 not be as useful in pillars as it is in other Salt items.
