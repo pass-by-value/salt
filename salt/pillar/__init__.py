@@ -125,7 +125,6 @@ class Pillar(object):
         # location of file_roots. Issue 5951
         ext_pillar_opts = dict(self.opts)
         ext_pillar_opts['file_roots'] = self.actual_file_roots
-
         self.merge_strategy = 'smart'
         if opts.get('pillar_source_merging_strategy'):
             self.merge_strategy = opts['pillar_source_merging_strategy']
@@ -267,6 +266,8 @@ class Pillar(object):
                 if saltenv in include:
                     include.pop(saltenv)
 
+        log.info('Tops in the compiler are ====================== {}'.format(tops))
+        log.info('ID Tops in the compiler are ====================== {}'.format(id(tops)))
         return tops, errors
 
     def merge_tops(self, tops):
@@ -458,7 +459,7 @@ class Pillar(object):
 
         return pillar, errors
 
-    def ext_pillar(self, pillar):
+    def ext_pillar(self, pillar, pillar_dirs):
         '''
         Render the external pillar data
         '''
@@ -486,7 +487,7 @@ class Pillar(object):
                         elif isinstance(val, list):
                             ext = self.ext_pillars[key](self.opts['id'], pillar, *val)
                         else:
-                            ext = self.ext_pillars[key](self.opts['id'], pillar, val)
+                            ext = self.ext_pillars[key](self.opts['id'], pillar, val, pillar_dirs)
                         pillar = self.merge_sources(pillar, ext)
 
                     except TypeError as exc:
@@ -536,15 +537,27 @@ class Pillar(object):
 
         return merged
 
-    def compile_pillar(self, ext=True):
+    def compile_pillar(self, ext=True, pillar_dirs=None):
         '''
         Render the pillar data and return
         '''
+        log.info('Called compile pillar')
         top, terrors = self.get_top()
         matches = self.top_matches(top)
         pillar, errors = self.render_pillar(matches)
         if ext:
-            pillar = self.ext_pillar(pillar)
+            log.info('&*'*20)
+            log.info("top={}".format(top))
+            log.info("id top={}".format(id(top)))
+            log.info("terrors={}".format(terrors))
+            log.info("matches={}".format(matches))
+            log.info("id matches={}".format(id(matches)))
+            log.info("pillar1={}".format(pillar))
+            log.info("id pillar1={}".format(id(pillar)))
+            log.info("errors={}".format(errors))
+            pillar = self.ext_pillar(pillar, pillar_dirs)
+            log.info("pillar2={}".format(pillar))
+            log.info('&*'*20)
         errors.extend(terrors)
         if self.opts.get('pillar_opts', True):
             mopts = dict(self.opts)
