@@ -231,20 +231,12 @@ def ext_pillar(minion_id,
     Execute a command and read the output as YAML
     '''
     # split the branch, repo name and optional extra (key=val) parameters.
-    import traceback
-    # traceback.print_stack()
+    if pillar_dirs is None:
+        return
     options = repo_string.strip().split()
     branch = options[0]
     repo_location = options[1]
     root = ''
-    log.info('*************************'
-             'in git_pillar with id={}'
-             .format(id(pillar_dirs)))
-    log.info('*^'*20)
-    log.info(options)
-    log.info(branch)
-    log.info(repo_location)
-    # traceback.print_stack()
 
     for extraopt in options[2:]:
         # Support multiple key=val attributes as custom parameters.
@@ -265,17 +257,6 @@ def ext_pillar(minion_id,
 
     # normpath is needed to remove appended '/' if root is empty string.
     pillar_dir = os.path.normpath(os.path.join(gitpil.working_dir, root))
-    
-    log.info('Pillar dir is {}'.format(pillar_dir))
-    log.info('Pillar Roots is {}'.format(__opts__['pillar_roots']))
-    log.info('branch is {}'.format(branch))
-    log.info('Pillar Roots branch is {}'.format(__opts__['pillar_roots'].get(branch, [])))
-    log.info('Pillar dirs are {}'.format(pillar_dirs))
-    import threading
-    log.info(threading.current_thread())
-
-    import traceback
-    # traceback.print_stack()
 
     pillar_dirs.setdefault(pillar_dir, {})
 
@@ -285,7 +266,6 @@ def ext_pillar(minion_id,
     pillar_dirs[pillar_dir].setdefault(branch, True)
 
 
-    log.info('*^'*20)
     # Don't recurse forever-- the Pillar object will re-call the ext_pillar
     # function
     if __opts__['pillar_roots'].get(branch, []) == [pillar_dir]:
@@ -299,7 +279,4 @@ def ext_pillar(minion_id,
 
     pil = Pillar(opts, __grains__, minion_id, branch)
 
-    # log.info('*^'*20)
-    # log.info(pil)
-    # log.info('*^'*20)
     return pil.compile_pillar()
