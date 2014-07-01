@@ -457,6 +457,31 @@ class Pillar(object):
 
         return pillar, errors
 
+    def _external_pillar_data(self,
+                             pillar,
+                             val,
+                             pillar_dirs,
+                             key):
+        '''
+        Builds actual pillar data structure
+        and update
+        the variable ``pillar``
+        '''
+
+        # try the new interface, which includes the minion ID
+        # as first argument
+        if isinstance(val, dict):
+            ext = self.ext_pillars[key](self.opts['id'], pillar, **val)
+        elif isinstance(val, list):
+            ext = self.ext_pillars[key](self.opts['id'], pillar, *val)
+        else:
+            ext = self.ext_pillars[key](self.opts['id'],
+                                        pillar,
+                                        val,
+                                        pillar_dirs)
+        if ext:
+            pillar = self.merge_sources(pillar, ext)
+
     def ext_pillar(self, pillar, pillar_dirs):
         '''
         Render the external pillar data
@@ -478,17 +503,10 @@ class Pillar(object):
                     continue
                 try:
                     try:
-                        # try the new interface, which includes the minion ID
-                        # as first argument
-                        if isinstance(val, dict):
-                            ext = self.ext_pillars[key](self.opts['id'], pillar, **val)
-                        elif isinstance(val, list):
-                            ext = self.ext_pillars[key](self.opts['id'], pillar, *val)
-                        else:
-                            ext = self.ext_pillars[key](self.opts['id'], pillar, val, pillar_dirs)
-                        if ext:
-                            pillar = self.merge_sources(pillar, ext)
-
+                        self._external_pillar_data(pillar,
+                                                  val,
+                                                  pillar_dirs,
+                                                  key)
                     except TypeError as exc:
                         if exc.message.startswith('ext_pillar() takes exactly '):
                             log.warning('Deprecation warning: ext_pillar "{0}"'
@@ -497,14 +515,10 @@ class Pillar(object):
                         else:
                             raise
 
-                        if isinstance(val, dict):
-                            ext = self.ext_pillars[key](pillar, **val)
-                        elif isinstance(val, list):
-                            ext = self.ext_pillars[key](pillar, *val)
-                        else:
-                            ext = self.ext_pillars[key](pillar, val)
-                        pillar = self.merge_sources(pillar, ext)
-
+                        self._external_pillar_data(pillar,
+                                                  val,
+                                                  pillar_dirs,
+                                                  key)
                 except Exception as exc:
                     log.exception(
                             'Failed to load ext_pillar {0}: {1}'.format(
