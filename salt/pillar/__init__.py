@@ -487,6 +487,9 @@ class Pillar(object):
                         elif isinstance(val, list):
                             ext = self.ext_pillars[key](self.opts['id'], pillar, *val)
                         else:
+                            log.info('**********************'
+                                     ' in ext pillar with'
+                                     'id={}'.format(id(pillar_dirs)))
                             ext = self.ext_pillars[key](self.opts['id'], pillar, val, pillar_dirs)
                         pillar = self.merge_sources(pillar, ext)
 

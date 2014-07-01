@@ -223,7 +223,10 @@ def _extract_key_val(kv, delim='='):
     return key, val
 
 
-def ext_pillar(minion_id, pillar, repo_string, pillar_dirs):
+def ext_pillar(minion_id,
+               pillar,
+               repo_string,
+               pillar_dirs):
     '''
     Execute a command and read the output as YAML
     '''
@@ -234,6 +237,9 @@ def ext_pillar(minion_id, pillar, repo_string, pillar_dirs):
     branch = options[0]
     repo_location = options[1]
     root = ''
+    log.info('*************************'
+             'in git_pillar with id={}'
+             .format(id(pillar_dirs)))
     log.info('*^'*20)
     log.info(options)
     log.info(branch)
