@@ -533,8 +533,9 @@ class Pillar(object):
                                 exc
                                 )
                             )
-        if ext:
-            pillar = self.merge_sources(pillar, ext)
+            if ext:
+                pillar = self.merge_sources(pillar, ext)
+                ext = None
         return pillar
 
     def merge_sources(self, obj_a, obj_b):
