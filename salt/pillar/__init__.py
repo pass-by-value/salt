@@ -479,7 +479,6 @@ class Pillar(object):
         else:
             if key == 'git':
                 ext = self.ext_pillars[key](self.opts['id'],
-                                            pillar,
                                             val,
                                             pillar_dirs)
             else:

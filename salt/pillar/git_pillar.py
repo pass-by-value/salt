@@ -224,7 +224,6 @@ def _extract_key_val(kv, delim='='):
 
 
 def ext_pillar(minion_id,
-               pillar,
                repo_string,
                pillar_dirs):
     '''
@@ -264,7 +263,6 @@ def ext_pillar(minion_id,
         return {}  # we've already seen this combo
 
     pillar_dirs[pillar_dir].setdefault(branch, True)
-
 
     # Don't recurse forever-- the Pillar object will re-call the ext_pillar
     # function
