@@ -97,10 +97,21 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         test salt-key -l
         '''
         data = self.run_key('-l acc')
-        self.assertEqual(
-            data,
-            ['Accepted Keys:', 'minion', 'sub_minion']
-        )
+        if self.master_opts['transport'] == 'zeromq':
+            self.assertEqual(
+                data,
+                ['Accepted Keys:', 'minion', 'sub_minion']
+            )
+        elif self.master_opts['transport'] == 'raet':
+            self.assertEqual(
+                data,
+                [
+                    'minions:',
+                    '    - master',
+                    '    - minion',
+                    '    - sub_minion'
+                ]
+            )
 
     def test_list_un(self):
         '''
