@@ -70,14 +70,24 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         test salt-key -L --yaml-out
         '''
         data = self.run_key('-L --out yaml')
-
-        expect = [
-            'minions:',
-            '- minion',
-            '- sub_minion',
-            'minions_pre: []',
-            'minions_rejected: []',
-        ]
+        expect = []
+        if self.master_opts['transport'] == 'zeromq':
+            expect = [
+                'minions:',
+                '- minion',
+                '- sub_minion',
+                'minions_pre: []',
+                'minions_rejected: []',
+            ]
+        elif self.master_opts['transport'] == 'raet':
+            expect = [
+                'minions:',
+                '- master',
+                '- minion',
+                '- sub_minion',
+                'minions_pre: []',
+                'minions_rejected: []',
+            ]
         self.assertEqual(data, expect)
 
     def test_list_raw_out(self):
