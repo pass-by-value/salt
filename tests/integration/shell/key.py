@@ -144,7 +144,12 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         arg_str = '--gen-keys minibar --gen-keys-dir {0}'.format(tempdir)
         self.run_script('salt-key', arg_str)
         try:
-            for fname in ('minibar.pub', 'minibar.pem'):
+            key_names = None
+            if self.master_opts['transport'] == 'zeromq':
+                key_names = ('minibar.pub', 'minibar.pem')
+            elif self.master_opts['transport'] == 'raet':
+                key_names = ('minibar.key',)
+            for fname in key_names:
                 self.assertTrue(os.path.isfile(os.path.join(tempdir, fname)))
         finally:
             shutil.rmtree(tempdir)
