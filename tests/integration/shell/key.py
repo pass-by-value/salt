@@ -53,17 +53,29 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         test salt-key -L --json-out
         '''
         data = self.run_key('-L --out json')
-
-        expect = [
-            '{',
-            '    "minions_rejected": [], ',
-            '    "minions_pre": [], ',
-            '    "minions": [',
-            '        "minion", ',
-            '        "sub_minion"',
-            '    ]',
-            '}',
-        ]
+        expect = None
+        if self.master_opts['transport'] == 'zeromq':
+            expect = [
+                '{',
+                '    "minions_rejected": [], ',
+                '    "minions_pre": [], ',
+                '    "minions": [',
+                '        "minion", ',
+                '        "sub_minion"',
+                '    ]',
+                '}',
+            ]
+        elif self.master_opts['transport'] == 'raet':
+            expect = [
+                '{',
+                '    "accepted": [',
+                '        "master", ',
+                '        "minion", ',
+                '        "sub_minion"', '    ],',
+                '    "rejected": [], ',
+                '    "pending": []',
+                '}'
+            ]
         self.assertEqual(data, expect)
 
     def test_list_yaml_out(self):
