@@ -95,12 +95,12 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
             ]
         elif self.master_opts['transport'] == 'raet':
             expect = [
-                'minions:',
+                'accepted:',
                 '- master',
                 '- minion',
                 '- sub_minion',
-                'minions_pre: []',
-                'minions_rejected: []',
+                'pending: []',
+                'rejected: []'
             ]
         self.assertEqual(data, expect)
 
