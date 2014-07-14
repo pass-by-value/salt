@@ -38,14 +38,24 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         test salt-key -L
         '''
         data = self.run_key('-L')
-        expect = [
-            'Accepted Keys:',
-            'master',
-            'minion',
-            'sub_minion',
-            'Unaccepted Keys:',
-            'Rejected Keys:'
-        ]
+        expect = None
+        if self.master_opts['transport'] == 'zeromq':
+            expect = [
+                'Accepted Keys:',
+                'minion',
+                'sub_minion',
+                'Unaccepted Keys:',
+                'Rejected Keys:'
+            ]
+        elif self.master_opts['transport'] == 'raet':
+            expect = [
+                'Accepted Keys:',
+                'master',
+                'minion',
+                'sub_minion',
+                'Unaccepted Keys:',
+                'Rejected Keys:'
+            ]
         self.assertEqual(data, expect)
 
     def test_list_json_out(self):
