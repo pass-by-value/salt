@@ -109,11 +109,19 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         test salt-key -L --raw-out
         '''
         data = self.run_key('-L --out raw')
-
-        expect = [
-            "{'minions_rejected': [], 'minions_pre': [], "
-            "'minions': ['minion', 'sub_minion']}"
-        ]
+        expect = None
+        if self.master_opts['transport'] == 'zeromq':
+            expect = [
+                "{'minions_rejected': [], 'minions_pre': [], "
+                "'minions': ['minion', 'sub_minion']}"
+            ]
+        elif self.master_opts['transport'] == 'raet':
+            expected_txt = (
+                '{\'accepted\': '
+                '[\'master\', \'minion\', \'sub_minion\'], '
+                '\'rejected\': [], \'pending\': []}'
+            )
+            expect = [expected_txt]
         self.assertEqual(data, expect)
 
     def test_list_acc(self):
