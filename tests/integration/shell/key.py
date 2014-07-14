@@ -40,6 +40,7 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         data = self.run_key('-L')
         expect = [
             'Accepted Keys:',
+            'master',
             'minion',
             'sub_minion',
             'Unaccepted Keys:',
