@@ -71,7 +71,8 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
                 '    "accepted": [',
                 '        "master", ',
                 '        "minion", ',
-                '        "sub_minion"', '    ],',
+                '        "sub_minion"',
+                '    ], ',
                 '    "rejected": [], ',
                 '    "pending": []',
                 '}'
