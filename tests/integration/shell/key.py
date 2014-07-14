@@ -150,9 +150,14 @@ class KeyTest(integration.ShellCase, integration.ShellCaseCommonTestsMixIn):
         test salt-key -l
         '''
         data = self.run_key('-l un')
+        expect = None
+        if self.master_opts['transport'] == 'zeromq':
+            expect = ['Unaccepted Keys:']
+        elif self.master_opts['transport'] == 'raet':
+            expect = ['minions_pre:']
         self.assertEqual(
             data,
-            ['Unaccepted Keys:']
+            expect
         )
 
     def test_keys_generation(self):
