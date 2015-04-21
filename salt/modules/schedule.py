@@ -66,24 +66,32 @@ def list_(show_all=False, return_yaml=True):
     if 'schedule' in __pillar__:
         schedule.update(__pillar__['schedule'])
 
+    to_del = []
+    for job in schedule.keys():
+        # Default jobs added by salt begin with __
+        # by default hide them unless show_all is True.
+        if job.startswith('__') and not show_all:
+            to_del.append(job)
+
+    for job in to_del:
+        del schedule[job]
+
     for job in schedule.keys():  # iterate over a copy since we will mutate it
         if job == 'enabled':
             continue
 
-        # Default jobs added by salt begin with __
-        # by default hide them unless show_all is True.
-        if job.startswith('__') and not show_all:
-            del schedule[job]
-            continue
-
+        to_del = []
         for item in schedule[job]:
             if item not in SCHEDULE_CONF:
-                del schedule[job][item]
+                to_del.append((job, item))
                 continue
             if schedule[job][item] == 'true':
                 schedule[job][item] = True
             if schedule[job][item] == 'false':
                 schedule[job][item] = False
+
+        for job, item in to_del:
+            del schedule[job][item]
 
         if '_seconds' in schedule[job]:
             schedule[job]['seconds'] = schedule[job]['_seconds']
@@ -563,6 +571,7 @@ def save():
     ret = {'comment': [],
            'result': True}
 
+    log.info('Called the save function')
     schedule = list_(return_yaml=False)
 
     # move this file into an configurable opt
