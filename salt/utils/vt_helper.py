@@ -96,9 +96,13 @@ class SSHConnection(object):
                     continue
                 else:
                     self.conn.sendline('no')
+                    log.error('Please accept the key for {0}'.format(host))
+                    raise TerminalException(
+                        'Host key verification failed! Please accept key')
             elif stdout and self.prompt_re.search(stdout):
                 # Auth success!
                 # We now have a prompt
+                log.info('Connected to {0}'.format(host))
                 break
 
     def sendline(self, cmd):
