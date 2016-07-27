@@ -69,7 +69,7 @@ def __virtual__():
     '''
     if HAS_DRIVER:
         return __virtualname__
-    return False
+    return (False, 'Cannot load cassandra_cql module: python driver not found')
 
 
 def _load_properties(property_name, config_option, set_default=False, default=None):
@@ -206,7 +206,10 @@ def cql_query(query, contact_points=None, port=None, cql_user=None, cql_pass=Non
             for key, value in six.iteritems(result):
                 # Salt won't return dictionaries with odd types like uuid.UUID
                 if not isinstance(value, six.text_type):
-                    value = str(value)
+                    # Must support Cassandra collection types.
+                    # Namely, Cassandras set, list, and map collections.
+                    if not isinstance(value, (set, list, dict)):
+                        value = str(value)
                 values[key] = value
             ret.append(values)
 
@@ -284,8 +287,8 @@ def info(contact_points=None, port=None, cql_user=None, cql_pass=None):
                       release_version,
                       cql_version,
                       schema_version,
-                      thrift_version 
-                 from system.local 
+                      thrift_version
+                 from system.local
                 limit 1;'''
 
     ret = {}
@@ -485,7 +488,7 @@ def create_keyspace(keyspace, replication_strategy='SimpleStrategy', replication
             replication_map['replication_factor'] = replication_factor
 
         query = '''create keyspace {0}
-                     with replication = {1} 
+                     with replication = {1}
                       and durable_writes = true;'''.format(keyspace, replication_map)
 
         try:
@@ -647,6 +650,7 @@ def list_permissions(username=None, resource=None, resource_type='keyspace', per
     :rtype:                dict
 
     .. code-block:: bash
+
         salt 'minion1' cassandra_cql.list_permissions
 
         salt 'minion1' cassandra_cql.list_permissions username=joe resource=test_keyspace permission=select
@@ -702,6 +706,7 @@ def grant_permission(username, resource=None, resource_type='keyspace', permissi
     :rtype:
 
     .. code-block:: bash
+
         salt 'minion1' cassandra_cql.grant_permission
 
         salt 'minion1' cassandra_cql.grant_permission username=joe resource=test_keyspace permission=select
