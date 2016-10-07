@@ -18,6 +18,7 @@ def get_available_blade():
     Method to determine which blade is available
     '''
     # TBD: Implement this and test with actual setup
+    # how to determine which blade is available?
     log.info('Trying to get an available blade')
     return {
         'mac': '00-01-02-03-04-05-06'
@@ -49,6 +50,7 @@ def get_file_path(options):
     Determine path of this config file on the server
     '''
     # TBD: Implement this
+    # how to determine the file path?
     log.info('Called function to get file path')
     return options.get('filename', '')
 
@@ -57,7 +59,7 @@ def get_file_contents(os_name):
     '''
     Return the config file contents
     '''
-    # TBD: Figure out how to specify the OS
+    # TBD: Figure out (how to specify the OS?)
     return 'label Clonezilla-live' \
            'MENU LABEL Clonezilla Live (Ramdisk)' \
            'KERNEL vmlinuz' \
