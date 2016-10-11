@@ -125,6 +125,7 @@ def set_pxe_boot(hostname):
     Set the boot order to PXE for this blade
     :param hostname: The blade hostname
     '''
+    log.info('Setting boot order to PXE')
     _get_runner_client().cmd(
         'drac.pxe',
         args=[hostname]
@@ -140,6 +141,7 @@ def reboot_blade(hostname):
         'drac.reboot',
         args=[hostname]
     )
+    log.info('Blade was rebooted!')
 
 
 def wait_for_guest_os():
