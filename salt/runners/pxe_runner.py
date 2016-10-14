@@ -1,11 +1,36 @@
 # -*- coding: utf-8 -*-
 '''
 Custom runner to interface with PXE server
+
+    Please add the following settings to the salt master config file
+
+    .. code-block:: yaml
+        cse_pxe_server_settings:
+          ip: '1.2.3.4'
+          username: salt
+          password: salt
+          shared_folder: /path/to/shared/folder
+          clonezilla_image_map:
+            Windows7: '123456-00'
+            CentOS: '479356-49586'
+
+          # mac to blade info mapping
+          blades:
+            '00-01-01-02-03':
+              ip: '1.2.3.4'
+              username: blade1user
+              password: blade1pass
+            '00-01-01-02-04':
+              ip: '5.6.7.8'
+              username: blade2user
+              password: blade2pass
+
 '''
 # import python libs
 from __future__ import absolute_import
 from __future__ import print_function
 import logging
+import six
 
 # import salt libs
 import salt.client
@@ -21,12 +46,19 @@ def get_available_blade():
     # TODO: Implement this and test with actual setup
     # how to determine which blade is available?
     log.info('Trying to get an available blade')
-    return {
-        'mac': '00-01-02-03-04-05-06'
-    }
+    for mac in six.iterkeys(
+        __opts__['cse_pxe_server_settings']['blades']):
+            blade = __opts__['cse_pxe_server_settings'][
+                'blades'][mac]
+            if not __salt__['drac.version'](
+                blade['ip'],
+                blade['username'],
+                blade['password'],
+            ):
+                return mac, blade['ip']
 
 
-def write_file_to_pxe_server(pxe_server, filepath='', contents=''):
+def write_file_to_pxe_server(filepath='', contents=''):
     '''
     Calls salt's file.write module to write a file on the PXE server
     :param pxe_server: Target for the PXE server
@@ -39,7 +71,9 @@ def write_file_to_pxe_server(pxe_server, filepath='', contents=''):
     log.info('Writing config file to pxe server')
     local = salt.client.LocalClient()
     local.cmd(
-        pxe_server,
+        __opts__.get(
+            'cse_pxe_server_settings'
+        ).get('ip'),
         filepath,
         args=[contents]
     )
@@ -59,17 +93,6 @@ def get_file_path(options):
 def get_file_contents(os_name):
     '''
     Return the config file contents
-
-    Please add the following settings to the salt master config file
-
-    .. code-block:: yaml
-        cse_pxe_server_settings:
-          ip: '1.2.3.4'
-          username: salt
-          password: salt
-          shared_folder: /path/to/shared/folder
-          clonezilla_image_guid: '123456-00'
-
     '''
     # TODO: Verify that this config is correct. How do I specify os?
     pxe_settings = __opts__.get('cse_pxe_server_settings')
@@ -77,7 +100,8 @@ def get_file_contents(os_name):
     username = pxe_settings['username']
     password = pxe_settings['password']
     shared_folder = pxe_settings['shared_folder']
-    clonezilla_image_guid = pxe_settings['clonezilla_image_guid']
+    clonezilla_image_guid = pxe_settings[
+        'clonezilla_image_map'].get('os_name', 'INVALID')
 
     return 'DEFAULT clonezilla' \
            'PROMPT 0' \
@@ -120,7 +144,7 @@ def _get_runner_client():
     )
 
 
-def set_pxe_boot(hostname):
+def set_pxe_boot(ip):
     '''
     Set the boot order to PXE for this blade
     :param hostname: The blade hostname
@@ -128,18 +152,18 @@ def set_pxe_boot(hostname):
     log.info('Setting boot order to PXE')
     _get_runner_client().cmd(
         'drac.pxe',
-        args=[hostname]
+        args=[ip]
     )
 
 
-def reboot_blade(hostname):
+def reboot_blade(ip):
     '''
     Reboot this blade
     :param hostname: The blade hostname
     '''
     _get_runner_client().cmd(
         'drac.reboot',
-        args=[hostname]
+        args=[ip]
     )
     log.info('Blade was rebooted!')
 
@@ -161,7 +185,7 @@ def wait_for_cloning_to_start():
     pass
 
 
-def write_default_file(pxe_server, filepath):
+def write_default_file(filepath):
     '''
     Write the default file to pxe server
     :param pxe_server: Host name of the PXE server
@@ -172,14 +196,16 @@ def write_default_file(pxe_server, filepath):
                             'LABEL local' \
                             'LOCALBOOT 0'
     local.cmd(
-        pxe_server,
+        __opts__.get(
+            'cse_pxe_server_settings'
+        ).get('ip'),
         filepath,
         args=[default_file_contents]
     )
     log.info('Wrote default config file to pxe server')
 
 
-def provision_os(os_name, hostname):
+def provision_os(os_name):
     '''
     This top level method is used to determine
     1. The available blade
@@ -189,18 +215,16 @@ def provision_os(os_name, hostname):
     5. Write default file to pxe server
     5. Wait for the Clonezilla os to be replaced by the guest os
     '''
-    blade = get_available_blade()
-    write_file_to_pxe_server(hostname,
-                             filename=blade['mac'],
+    mac, ip = get_available_blade()
+    write_file_to_pxe_server(filename=mac,
                              filepath=get_file_path(os_name),
                              file_contents=get_file_contents(os_name))
 
-    set_pxe_boot(hostname)
-    reboot_blade(hostname)
+    set_pxe_boot(ip)
+    reboot_blade(ip)
 
     wait_for_cloning_to_start()
-    write_default_file(hostname,
-                       get_file_path(os_name))
+    write_default_file(get_file_path(os_name))
 
     wait_for_guest_os()
     # TODO: What are the next steps that we have to take before testing can start?
