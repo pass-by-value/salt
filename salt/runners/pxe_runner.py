@@ -33,6 +33,7 @@ import logging
 import six
 
 # import salt libs
+from salt.utils.cloud import wait_for_port, wait_for_winrm
 import salt.client
 import salt.config
 
@@ -168,21 +169,21 @@ def reboot_blade(ip):
     log.info('Blade was rebooted!')
 
 
-def wait_for_guest_os():
+def wait_for_guest_os(ip):
     '''
     Loops until Clonezilla live isn't running and the
     actual guest os is running
     '''
     # TODO: Figure out how to do this
-    pass
+    wait_for_winrm(ip)
 
 
-def wait_for_cloning_to_start():
+def wait_for_cloning_to_start(ip):
     '''
     Loops until cloning starts
     '''
     # TODO: Figure out how to do this
-    pass
+    wait_for_port(ip)
 
 
 def write_default_file(filepath):
@@ -223,8 +224,8 @@ def provision_os(os_name):
     set_pxe_boot(ip)
     reboot_blade(ip)
 
-    wait_for_cloning_to_start()
+    wait_for_cloning_to_start(ip)
     write_default_file(get_file_path(os_name))
 
-    wait_for_guest_os()
+    wait_for_guest_os(ip)
     # TODO: What are the next steps that we have to take before testing can start?
