@@ -169,6 +169,18 @@ def reboot_blade(ip):
     log.info('Blade was rebooted!')
 
 
+def poweroff_blade(ip):
+    '''
+    Reboot this blade
+    :param hostname: The blade hostname
+    '''
+    _get_runner_client().cmd(
+        'drac.poweroff',
+        args=[ip]
+    )
+    log.info('Blade was shut down!')
+
+
 def wait_for_guest_os(ip):
     '''
     Loops until Clonezilla live isn't running and the
@@ -228,4 +240,7 @@ def provision_os(os_name):
     write_default_file(get_file_path(os_name))
 
     wait_for_guest_os(ip)
+
     # TODO: What are the next steps that we have to take before testing can start?
+
+    poweroff_blade(ip)
