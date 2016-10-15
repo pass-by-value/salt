@@ -101,8 +101,10 @@ def get_file_contents(os_name):
     username = pxe_settings['username']
     password = pxe_settings['password']
     shared_folder = pxe_settings['shared_folder']
-    clonezilla_image_guid = pxe_settings[
-        'clonezilla_image_map'].get('os_name', 'INVALID')
+    clonezilla_image_guid = \
+        pxe_settings['clonezilla_image_map'].get(
+            'os_name',
+            'INVALID')
 
     return 'DEFAULT clonezilla' \
            'PROMPT 0' \
@@ -145,7 +147,7 @@ def _get_runner_client():
     )
 
 
-def set_pxe_boot(ip):
+def set_pxe_boot(ip_address):
     '''
     Set the boot order to PXE for this blade
     :param hostname: The blade hostname
@@ -153,49 +155,49 @@ def set_pxe_boot(ip):
     log.info('Setting boot order to PXE')
     _get_runner_client().cmd(
         'drac.pxe',
-        args=[ip]
+        args=[ip_address]
     )
 
 
-def reboot_blade(ip):
+def reboot_blade(ip_address):
     '''
     Reboot this blade
     :param hostname: The blade hostname
     '''
     _get_runner_client().cmd(
         'drac.reboot',
-        args=[ip]
+        args=[ip_address]
     )
     log.info('Blade was rebooted!')
 
 
-def poweroff_blade(ip):
+def poweroff_blade(ip_address):
     '''
     Reboot this blade
     :param hostname: The blade hostname
     '''
     _get_runner_client().cmd(
         'drac.poweroff',
-        args=[ip]
+        args=[ip_address]
     )
     log.info('Blade was shut down!')
 
 
-def wait_for_guest_os(ip):
+def wait_for_guest_os(ip_address):
     '''
     Loops until Clonezilla live isn't running and the
     actual guest os is running
     '''
     # TODO: Figure out how to do this
-    wait_for_winrm(ip)
+    wait_for_winrm(ip_address)
 
 
-def wait_for_cloning_to_start(ip):
+def wait_for_cloning_to_start(ip_address):
     '''
     Loops until cloning starts
     '''
     # TODO: Figure out how to do this
-    wait_for_port(ip)
+    wait_for_port(ip_address)
 
 
 def write_default_file(filepath):
@@ -228,19 +230,19 @@ def provision_os(os_name):
     5. Write default file to pxe server
     5. Wait for the Clonezilla os to be replaced by the guest os
     '''
-    mac, ip = get_available_blade()
+    mac, ip_address = get_available_blade()
     write_file_to_pxe_server(filename=mac,
                              filepath=get_file_path(os_name),
                              file_contents=get_file_contents(os_name))
 
-    set_pxe_boot(ip)
-    reboot_blade(ip)
+    set_pxe_boot(ip_address)
+    reboot_blade(ip_address)
 
-    wait_for_cloning_to_start(ip)
+    wait_for_cloning_to_start(ip_address)
     write_default_file(get_file_path(os_name))
 
-    wait_for_guest_os(ip)
+    wait_for_guest_os(ip_address)
 
     # TODO: What are the next steps that we have to take before testing can start?
 
-    poweroff_blade(ip)
+    poweroff_blade(ip_address)
