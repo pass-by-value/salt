@@ -29,3 +29,4 @@ This section contains a list of the Python modules that are used to extend the v
     ../ref/thorium/all/index
     ../ref/tops/all/index
     ../ref/wheel/all/index
+    ../ref/request_queuing/all/index

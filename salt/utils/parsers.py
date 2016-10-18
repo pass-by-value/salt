@@ -2570,6 +2570,14 @@ class SaltRunOptionParser(six.with_metaclass(OptionParserMeta,
             action='store_true',
             help=('Start the runner operation and immediately return control.')
         )
+        self.add_option(
+            '-r', '--queue',
+            nargs=1,
+            default='',
+            help=('Submit a request to this queue. '
+                  'This request is processed by the Salt Request Manager '
+                  'and will be throttled.')
+        )
         group = self.output_options_group = optparse.OptionGroup(
             self, 'Output Options', 'Configure your preferred output format.'
         )

@@ -75,6 +75,8 @@ import salt.utils.zeromq
 import salt.utils.jid
 from salt.defaults import DEFAULT_TARGET_DELIM
 from salt.exceptions import FileserverConfigError
+from salt.request_queuing.salt_request_manager import SaltRequestManager
+from salt.request_queuing.queue_reader import QueueReader
 from salt.transport import iter_transport_opts
 from salt.utils.debug import (
     enable_sigusr1_handler, enable_sigusr2_handler, inspect_stack
@@ -231,6 +233,15 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
         salt.daemons.masterapi.clean_pub_auth(self.opts)
 
         old_present = set()
+
+        # Instantiate the salt request manager
+        runners = salt.loader.runner(self.opts)
+        log.debug('Instantiating salt request manager')
+        reader = QueueReader(self.opts['input_queues'], runners)
+        mgr = SaltRequestManager(
+            self.opts,
+            reader
+        )
         while True:
             now = int(time.time())
             if (now - last) >= self.loop_interval:
@@ -243,6 +254,11 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
             self.handle_key_rotate(now)
             salt.daemons.masterapi.fileserver_update(self.fileserver)
             salt.utils.verify.check_max_open_files(self.opts)
+
+            # Call salt request manager periodically
+            mgr.update()
+            mgr.poll()
+
             last = now
             time.sleep(self.loop_interval)
 

@@ -126,9 +126,12 @@ def _list_items(queue):
     with _conn() as cur:
         cmd = 'SELECT data FROM {0}'.format(queue)
         log.debug('SQL Query: {0}'.format(cmd))
-        cur.execute(cmd)
-        contents = cur.fetchall()
-        return contents
+        try:
+            cur.execute(cmd)
+            contents = cur.fetchall()
+            return contents
+        except psycopg2.ProgrammingError as err:
+            log.debug('%s', err)
 
 
 def list_queues():
@@ -145,8 +148,9 @@ def list_items(queue):
     List contents of a queue
     '''
     itemstuple = _list_items(queue)
-    items = [item[0] for item in itemstuple]
-    return items
+    if itemstuple:
+        items = [item[0] for item in itemstuple]
+        return items
 
 
 def list_length(queue):
@@ -229,7 +233,10 @@ def delete(queue, items):
             for item in items:
                 newitems.append((item,))
                 # we need a list of one item tuples here
-            cur.executemany(cmd, newitems)
+            try:
+                cur.executemany(cmd, newitems)
+            except psycopg2.ProgrammingError as err:
+                log.error('Got an error while inserting into db! %s', err)
     return True
 
 

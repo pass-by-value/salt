@@ -2,6 +2,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
+from salt.output import display_output
 from salt.utils import parsers
 from salt.utils import activate_profile
 from salt.utils import output_profile
@@ -40,6 +41,13 @@ class SaltRun(parsers.SaltRunOptionParser):
                 try:
                     ret = runner.run()
                     if isinstance(ret, dict) and 'retcode' in ret.get('data', {}):
+                        if 'request_id' in ret['data']:
+                            display_output(
+                                'request_id '
+                                '= {0}'.format(
+                                    ret['data']['request_id']),
+                                opts=self.config
+                            )
                         self.exit(ret['data']['retcode'])
                 finally:
                     output_profile(
