@@ -16,7 +16,6 @@ from salttesting.mock import MagicMock
 # Import salt libs
 import salt.request_queuing.salt_job_manager
 from salt.request_queuing.salt_job_manager import SaltJobManager
-# from salt.request_queuing.run_queue import RunQueue
 
 ensure_in_syspath('../../')
 
