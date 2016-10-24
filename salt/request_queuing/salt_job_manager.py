@@ -34,14 +34,14 @@ class SaltJobManager(object):
         Submit pending requests if
         there's space in the queue
         '''
-        to_delete = []
+        submitted_requests = []
         while len(pending_requests) > 0 and not self.run_queue.is_full():
             request = pending_requests.popleft()
             log.debug('Submitting request %s', str(request))
             self.submit_one(request)
             self.run_queue.add(request)
-            to_delete.append(request)
-        return to_delete
+            submitted_requests.append(request)
+        return submitted_requests
 
     def poll(self):
         '''
