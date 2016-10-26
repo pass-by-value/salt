@@ -1098,6 +1098,39 @@ class VMwareTestCase(ExtendedTestCase):
             call='function')
 
 
+class CloneFromSnapshotTest(TestCase):
+    '''
+    Test functionality to clone from snapshot
+    '''
+    @skipIf(HAS_LIBS is False, "Install pyVmomi to be able to run this unit test.")
+    def test_quick_linked_clone(self):
+        obj_ref = MagicMock()
+        obj_ref.snapshot = vim.vm.Snapshot(None, None)
+        obj_ref.snapshot.currentSnapshot = vim.vm.Snapshot(None, None)
+        clone_spec = vmware.handle_snapshot(
+            vim.vm.ConfigSpec(),
+            obj_ref,
+            vim.vm.RelocateSpec(),
+            False,
+            {'snapshot': {
+                'disk_move_type': 'createNewChildDiskBacking'}})
+        self.assertEqual(clone_spec.location.diskMoveType, 'createNewChildDiskBacking')
+
+        obj_ref2 = MagicMock()
+        obj_ref2.snapshot = vim.vm.Snapshot(None, None)
+        obj_ref2.snapshot.currentSnapshot = vim.vm.Snapshot(None, None)
+
+        clone_spec2 = vmware.handle_snapshot(
+            vim.vm.ConfigSpec(),
+            obj_ref2,
+            vim.vm.RelocateSpec(),
+            True,
+            {'snapshot': {
+                'disk_move_type': 'createNewChildDiskBacking'}})
+
+        self.assertEqual(clone_spec2.location.diskMoveType, 'createNewChildDiskBacking')
+
 if __name__ == '__main__':
     from integration import run_tests
     run_tests(VMwareTestCase, needs_daemon=False)
+    run_tests(CloneFromSnapshotTest, needs_daemon=False)
