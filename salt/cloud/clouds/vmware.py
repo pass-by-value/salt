@@ -132,7 +132,6 @@ from salt.exceptions import SaltCloudSystemExit
 
 # Import salt cloud libs
 import salt.config as config
-from salt.ext.six.moves import range
 
 # Attempt to import pyVim and pyVmomi libs
 try:
