@@ -28,14 +28,6 @@ class SaltJobManager(object):
         '''
         Submit an individual request
         '''
-        # TODO: What is the best way to do this?
-
-        # TODO: Figure out if this BYPASSES EAUTH!!!!!
-        # The submitting user only needs access to queue.put
-        # But they can pass in ANY salt function to us
-
-        # TODO: What kind of performance does python client provide?
-        # Can we do 100 jobs per (small) loop interval, 1K, 10K?
         return self.runner_client.async(request['low'])['jid']
 
     def submit_pending(self, pending_requests):
