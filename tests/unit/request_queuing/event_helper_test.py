@@ -49,3 +49,7 @@ class EventHelperTest(TestCase):
         events = [ret] * randint(2, 20)
         event_source.get_event = MagicMock(side_effect=events + [None])
         self.assertEqual(get_pending_events(event_source), events)
+
+if __name__ == '__main__':
+    from integration import run_tests
+    run_tests(EventHelperTest, needs_daemon=False)
