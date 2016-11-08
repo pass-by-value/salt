@@ -35,7 +35,7 @@ class EventHelperTest(TestCase):
 
     def test_returns_events_if_any(self):
         '''
-        Test when there are no events to return
+        Test when there are events to return
         '''
         event_source = get_event_source()
         ret = {'a': 1}
