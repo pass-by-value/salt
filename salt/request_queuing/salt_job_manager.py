@@ -10,6 +10,7 @@ from collections import deque
 import logging
 
 # Import salt libs
+from .event_helper import get_pending_events
 from .run_queue import RunQueue
 
 log = logging.getLogger(__file__)
@@ -19,10 +20,14 @@ class SaltJobManager(object):
     '''
     Salt job manager
     '''
-    def __init__(self, capacity=100, runner_client=None):
+    def __init__(self,
+                 capacity=100,
+                 runner_client=None,
+                 event_source=None):
         self.run_queue = RunQueue(capacity)
         # TODO: Add ability to handle all Salt clients
         self.runner_client = runner_client
+        self.event_source = event_source
 
     def submit_one(self, request):
         '''
@@ -63,3 +68,15 @@ class SaltJobManager(object):
                 to_delete,
                 __opts__['input_queue']['backend']
             )
+
+    def update(self):
+        '''
+        Check if running jobs have finished
+        and remove them from run queue if they have
+        '''
+        if len(self.run_queue) > 0:
+            events = get_pending_events(self.event_source)
+            for event in events:
+                # Pop events off of the run queue
+                # if they need to be popped
+                pass

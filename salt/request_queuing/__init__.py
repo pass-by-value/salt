@@ -2,4 +2,3 @@
 '''
 Salt request queue management and job throttling
 '''
-
