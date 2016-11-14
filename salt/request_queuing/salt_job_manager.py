@@ -8,9 +8,9 @@ and throttling.
 from __future__ import absolute_import
 from collections import deque
 import logging
+import six
 
 # Import salt libs
-from .event_helper import get_pending_events
 from .run_queue import RunQueue
 
 log = logging.getLogger(__file__)
@@ -75,8 +75,8 @@ class SaltJobManager(object):
         and remove them from run queue if they have
         '''
         if len(self.run_queue) > 0:
-            events = get_pending_events(self.event_source)
-            for event in events:
-                # Pop events off of the run queue
-                # if they need to be popped
-                pass
+            cached_jobs = __salt__['jobs.list_jobs'](
+                search_metadata=__opts__['metadata']
+            )
+            for job in six.iterkeys(cached_jobs):
+                self.run_queue.remove(job)

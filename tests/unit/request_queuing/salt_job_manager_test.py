@@ -123,6 +123,30 @@ class SaltJobManagerTest(TestCase):
         mgr.submit_pending(requests)
         self.assertEqual(runner_client.async.called, True)
 
+    def test_it_pops_jobs_off_the_run_queue(self):
+        '''
+        Make sure that finished jobs are removed from
+        the run queue
+        '''
+        mgr = SaltJobManager(
+            runner_client=MagicMock()
+        )
+        mgr.run_queue.add('1')
+        mgr.run_queue.add('2')
+        mgr.run_queue.add('3')
+
+        salt.request_queuing.salt_job_manager.__salt__ = {
+            'jobs.list_jobs': MagicMock(return_value={'1': {}, '2': {}})
+        }
+        salt.request_queuing.salt_job_manager.__opts__ = {
+            'metadata': ''
+        }
+        mgr.update()
+        self.assertEqual(len(mgr.run_queue), 1)
+        self.assertEqual('1' in mgr.run_queue, False)
+        self.assertEqual('2' in mgr.run_queue, False)
+        self.assertEqual('3' in mgr.run_queue, True)
+
 if __name__ == '__main__':
     from integration import run_tests
     run_tests(SaltJobManagerTest, needs_daemon=False)
