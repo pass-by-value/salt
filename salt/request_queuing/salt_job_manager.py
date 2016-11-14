@@ -22,10 +22,14 @@ class SaltJobManager(object):
     '''
     def __init__(self,
                  capacity=100,
-                 runner_client=None):
+                 runner_client=None,
+                 opts=None,
+                 runners=None):
         self.run_queue = RunQueue(capacity)
         # TODO: Add ability to handle all Salt clients
         self.runner_client = runner_client
+        self.opts = opts
+        self.runners = runners
 
     def submit_one(self, request):
         '''
@@ -53,18 +57,18 @@ class SaltJobManager(object):
         queue and submitting jobs
         '''
         log.debug('Salt job manager poll method called')
-        pending_requests = deque(__salt__['queue.list_items'](
-            __opts__['input_queue']['name'],
-            __opts__['input_queue']['backend']
+        pending_requests = deque(self.runners['queue.list_items'](
+            self.opts['input_queue']['name'],
+            self.opts['input_queue']['backend']
         ))
 
         to_delete = self.submit_pending(pending_requests)
 
         if to_delete:
-            __salt__['queue.delete'](
-                __opts__['input_queue']['name'],
+            self.runners['queue.delete'](
+                self.opts['input_queue']['name'],
                 to_delete,
-                __opts__['input_queue']['backend']
+                self.opts['input_queue']['backend']
             )
 
     def update(self):
@@ -73,8 +77,8 @@ class SaltJobManager(object):
         and remove them from run queue if they have
         '''
         if len(self.run_queue) > 0:
-            cached_jobs = __salt__['jobs.list_jobs'](
-                search_metadata=__opts__['metadata']
+            cached_jobs = self.runners['jobs.list_jobs'](
+                search_metadata=self.opts['metadata']
             )
             for job in six.iterkeys(cached_jobs):
                 self.run_queue.remove(job)
