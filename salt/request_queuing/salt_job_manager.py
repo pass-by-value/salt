@@ -22,12 +22,10 @@ class SaltJobManager(object):
     '''
     def __init__(self,
                  capacity=100,
-                 runner_client=None,
-                 event_source=None):
+                 runner_client=None):
         self.run_queue = RunQueue(capacity)
         # TODO: Add ability to handle all Salt clients
         self.runner_client = runner_client
-        self.event_source = event_source
 
     def submit_one(self, request):
         '''
