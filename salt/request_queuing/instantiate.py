@@ -9,30 +9,94 @@ from __future__ import absolute_import
 from collections import deque
 import logging
 import six
+from copy import deepcopy
 
 # Import salt libs
+from salt.client import LocalClient
+from salt.runner import RunnerClient
+from salt.wheel import WheelClient
+from salt.cloud import CloudClient
+from salt.utils.jid import gen_jid
+
 from .run_queue import RunQueue
 
+STATE_RUNNING = 'running'
+
+STATE_NEW = 'new'
+
 log = logging.getLogger(__name__)
+
 
 class SaltJobManager(object):
     '''
     Salt job manager
     '''
-    def __init__(self,
-                 capacity=100,
-                 runner_client=None,
-                 opts=None,
-                 runners=None,
-                 event_source=None):
-        self.run_queue = RunQueue(capacity)
-        # TODO: Add ability to handle all Salt clients
-        self.runner_client = runner_client
+    def __init__(self, opts):
         self.opts = opts
-        self.runners = runners
-        self.event_source = event_source
+        self.queues = self._instantiate_queues()
+        self.clients = self._instantiate_clients()
 
-    def submit_one(self, request):
+    def _instantiate_queues(self):
+        '''
+        instantiate run queues
+        :return: List of tuples (input queue name and
+        run queue object)
+         :rtype: List(tuple)
+        '''
+        return [
+            (input_queue['name'], RunQueue(input_queue['capacity'],
+                                           input_queue['name']))
+            for input_queue in self.opts['input_queues']
+        ]
+
+    def _instantiate_clients(self):
+        '''
+        Return a dict of clients
+        :return:
+        '''
+        return {
+            'local': LocalClient(mopts=self.opts),
+            'runner': RunnerClient(opts=self.opts),
+            'wheel': WheelClient(opts=self.opts),
+            'cloud': CloudClient(opts=self.opts),
+        }
+
+    def _process_new_request(self, request):
+        '''
+        State transition from new to running
+        :return:
+        '''
+        updated = deepcopy(request)
+        queues = dict(self.queues)
+        input_queue = request['input_queue']
+        if input_queue in queues:
+            if not queues[input_queue].is_full():
+                updated['jid'] = self._submit_one(request)
+                queues[input_queue].add(updated['request_id'])
+                updated['state'] = STATE_RUNNING
+        return updated
+
+    @staticmethod
+    def initialize_request(input_queue, low):
+        '''
+        Get the request dictionary
+        '''
+        return {
+            'input_queue': input_queue,
+            'low': low,
+            'jid': None,
+            'request_id': gen_jid(),
+            'state': STATE_NEW,
+        }
+
+    def process_request(self, request):
+        input_queue = request['input_queue']
+        if input_queue in dict(self.queues):
+            self._process_new_request(request)
+        else:
+            return None
+
+    def _submit_one(self, request):
         '''
         Submit an individual request
         '''
@@ -59,7 +123,7 @@ class SaltJobManager(object):
             request = pending_requests.popleft()
             log.debug('Submitting request %s', str(request))
             self.run_queue.add(
-                self.submit_one(request)
+                self._submit_one(request)
             )
             submitted_requests.append(request)
         return submitted_requests
