@@ -709,3 +709,10 @@ can be set in the cloud profile as shown in example below:
 
           Hard disk 2:
             mode: 'independent_nonpersistent'
+
+
+Locale Issues
+=============
+
+Setting the locale on a connection isn't supported at this time.
+Some locales may cause utf-8 related issues.
