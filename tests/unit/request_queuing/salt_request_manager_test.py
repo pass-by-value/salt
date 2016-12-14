@@ -6,8 +6,7 @@
 
 # Import Python libs
 from __future__ import absolute_import
-from collections import deque
-
+import six
 # Import Salt Testing libs
 from salttesting.unit import TestCase
 from salttesting.helpers import ensure_in_syspath
@@ -16,6 +15,7 @@ from salttesting.mock import MagicMock
 # Import salt libs
 from salt.config import master_config
 from salt.request_queuing.salt_request_manager import SaltRequestManager
+from .event_data import get_events
 
 ensure_in_syspath('../../')
 
@@ -30,10 +30,8 @@ class SaltRequestManagerTest(TestCase):
         '''
         opts = master_config('/etc/salt/master')
         req_mgr = SaltRequestManager(opts)
-        # print(req_mgr.queues[0][1].name)
-        # print(req_mgr.requests)
         self.assertNotEqual(req_mgr, None)
-        self.assertEqual(req_mgr.queues, [])
+        self.assertEqual(req_mgr.queues, {})
         self.assertEqual(req_mgr.requests, {})
         self.assertEqual(req_mgr.input_processors, {})
 
@@ -50,7 +48,6 @@ class SaltRequestManagerTest(TestCase):
         })
         req_mgr = SaltRequestManager(opts)
         self.assertNotEqual(req_mgr, None)
-        self.assertEqual(req_mgr.queues[0][1].name, 'foo')
         self.assertEqual(len(req_mgr.queues), 1)
         self.assertNotEqual(req_mgr.input_processors['foo'], None)
 
@@ -91,12 +88,171 @@ class SaltRequestManagerTest(TestCase):
             }]
         )
 
+    @staticmethod
+    def _queue_reader():
+        '''
+        Queue reader to return data structure
+        with updated queues
+        :return: Dict keyed by input_queue name
+        :rtype Dict
+        '''
+        opts = master_config('/etc/salt/master')
+        opts.update({
+            'input_queues': [{
+                'name': 'foo',
+                'capacity': 16,
+            }, {
+                'name': 'bar',
+                'capacity': 7,
+            }]
+        })
+        req_mgr = SaltRequestManager(opts)
+
+        id_foo1 = req_mgr.initialize_request('foo', {
+            'fun': 'foo.bar',
+            'client': 'runner',
+        })
+        id_foo2 = req_mgr.initialize_request('foo', {
+            'fun': 'jobs.list_jobs',
+            'client': 'runner',
+        })
+        id_bar = req_mgr.initialize_request('bar', {
+            'fun': 'jobs.list_jobs',
+            'client': 'runner',
+        })
+
+        foo_req = req_mgr.get_request('foo', id_foo1)
+        foo_req.extend(req_mgr.get_request('foo', id_foo2))
+        bar_req = req_mgr.get_request('bar', id_bar)
+
+        # Expected format allowing batch operation
+        return {'foo': foo_req, 'bar': bar_req}
+
     def test_poll(self):
         '''
         Test that it gets messages
         from input queues and processes them
         '''
+        opts = master_config('/etc/salt/master')
+        opts.update({
+            'input_queues': [{
+                'name': 'foo',
+                'capacity': 16,
+            }, {
+                'name': 'bar',
+                'capacity': 16,
+            }]
+        })
+        queue_reader = MagicMock()
+        # this supplies requests
+        queue_reader.read_all_queues = self._queue_reader
+        queue_reader.delete_jobs = lambda x: x
 
+        manager = SaltRequestManager(opts, queue_reader)
+        manager.poll()
+        self.assertEqual(len(dict(manager.queues)['foo']), 2)
+        self.assertEqual(len(dict(manager.queues)['bar']), 1)
+        self.assertEqual(len(list(six.iterkeys(manager.jid_req_map))), 3)
+
+    def test_does_not_submit_more_jobs_than_capacity(self):
+        '''
+        Test that it gets messages
+        from input queues and processes them
+        '''
+        opts = master_config('/etc/salt/master')
+        opts.update({
+            'input_queues': [{
+                'name': 'foo',
+                'capacity': 1,
+            }]
+        })
+        queue_reader = MagicMock()
+        queue_reader.read_all_queues = self._queue_reader
+        queue_reader.delete_jobs = lambda x: x  # Don't care what this does
+
+        manager = SaltRequestManager(opts, queue_reader)
+        manager.poll()
+        # make sure that only one job was submitted
+        self.assertEqual(len(dict(manager.queues)['foo']), 1)
+
+    @staticmethod
+    def _queue_with_jobs():
+        '''
+        Queue reader to return data structure
+        with updated queues
+        :return: Dict keyed by input_queue name
+        :rtype Dict
+        '''
+        opts = master_config('/etc/salt/master')
+        opts.update({
+            'input_queues': [{
+                'name': 'foo',
+                'capacity': 16,
+            }]
+        })
+        req_mgr = SaltRequestManager(opts)
+
+        id_foo1 = req_mgr.initialize_request('foo', {
+            'fun': 'foo.bar',
+            'client': 'runner',
+        })
+        id_foo2 = req_mgr.initialize_request('foo', {
+            'fun': 'jobs.list_jobs',
+            'client': 'runner',
+        })
+
+        foo_req = req_mgr.get_request('foo', id_foo1)
+        foo_req.extend(req_mgr.get_request('foo', id_foo2))
+        return id_foo1, {'foo': foo_req}
+
+    def test_calls_delete_on_submitted_jobs(self):
+        '''
+        Input queue cleanup testing
+        :return:
+        '''
+        opts = master_config('/etc/salt/master')
+        opts.update({
+            'input_queues': [{
+                'name': 'foo',
+                'capacity': 1,
+            }]
+        })
+        queue_reader = MagicMock()
+        queue_reader.read_all_queues = self._queue_with_jobs
+        queue_reader.delete_jobs = MagicMock()
+
+        req_id, data = self._queue_with_jobs()
+        queue_reader = MagicMock()
+        # this supplies requests
+        queue_reader.read_all_queues = MagicMock(return_value=data)
+        queue_reader.delete_jobs = MagicMock()
+
+        manager = SaltRequestManager(opts, queue_reader)
+        manager.poll()
+        # make sure that only one job was submitted
+        queue_reader.delete_jobs.assert_called_with({'foo': [req_id]})
+
+    def test_update(self):
+        '''
+        Test the update method marks jobs as complete
+        '''
+        opts = master_config('/etc/salt/master')
+        opts.update({
+            'input_queues': [{
+                'name': 'foo',
+                'capacity': 16,
+            }, {
+                'name': 'bar',
+                'capacity': 16,
+            }]
+        })
+        queue_reader = MagicMock()
+        # this supplies requests
+        queue_reader.read_all_queues = self._queue_reader
+        queue_reader.delete_jobs = lambda x: x
+
+        manager = SaltRequestManager(opts, queue_reader)
+        manager.poll()
     # def test_pending_jobs(self):
     #     '''
     #     Test paths when there are pending jobs

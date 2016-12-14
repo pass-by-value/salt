@@ -26,44 +26,6 @@ STATE_NEW = 'new'
 
 log = logging.getLogger(__name__)
 
-'''
-[{
-    'tag': '20161208114705304086',
-    'data': {
-        '_stamp': '2016-12-08T16:47:05.305210',
-        'minions': ['abstraction.local']
-    }
-}, {
-    'tag': 'salt/job/20161208114705304086/new',
-    'data': {
-        'tgt_type': 'glob',
-        'jid': '20161208114705304086',
-        'tgt': '*.local',
-        '_stamp': '2016-12-08T16:47:05.305601',
-        'user': 'sudo_adi',
-        'arg': [],
-        'fun': 'test.ping',
-        'minions': ['abstraction.local']
-    }
-}, {
-    'tag': 'salt/job/20161208114705304086/ret/abstraction.local',
-    'data': {
-        'fun_args': [],
-        'jid': '20161208114705304086',
-        'return': True,
-        'retcode': 0,
-        'success': True,
-        'cmd': '_return',
-        '_stamp': '2016-12-08T16:47:05.374480',
-        'fun': 'test.ping',
-        'id': 'abstraction.local',
-        'metadata': {
-            'foo': 'bar'
-        }
-    }
-}]
-'''
-
 
 class SaltRequestManager(object):
     '''
@@ -71,7 +33,7 @@ class SaltRequestManager(object):
     '''
     def __init__(self, opts, queue_reader=None):
         self.opts = opts
-        self.queues = self._instantiate_queues()
+        self.queues = dict(self._instantiate_queues())
         self.clients = self._instantiate_clients()
         self.queue_reader = queue_reader
 
@@ -81,7 +43,10 @@ class SaltRequestManager(object):
             queue['name']: {} for queue in self.opts.get('input_queues', [])
         }
 
+        self.jid_req_map = {}
+
         self.input_processors = self.init_input_processors()
+
 
     def get_request(self, input_queue, request_id):
         '''
@@ -101,9 +66,7 @@ class SaltRequestManager(object):
         return {
             queue['name']: InputQueueProcessor(
                 queue['name'],
-                dict(self.queues),
-                self.requests[queue['name']]
-            ) for queue in self.opts.get('input_queues', [])
+                self) for queue in self.opts.get('input_queues', [])
         }
 
     def _instantiate_queues(self):
@@ -125,7 +88,6 @@ class SaltRequestManager(object):
         :return:
         '''
         return {
-            'local':    LocalClient(),
             'runner':   RunnerClient(opts=self.opts),
             'wheel':    WheelClient(opts=self.opts),
             'cloud':    CloudClient(opts=self.opts),
@@ -159,23 +121,18 @@ class SaltRequestManager(object):
         '''
         log.debug('Salt job manager poll method called')
 
-        pending_requests = get_from_service()
+        # Pending requests queued by input_queue name
+        pending_requests = self.queue_reader.read_all_queues()
+
         to_delete = {}
         # Try to submit requests for all queues
         for input_queue in self.opts['input_queues']:
             to_delete[input_queue['name']] = \
                 self.input_processors[input_queue['name']].submit_pending(
-                pending_requests[input_queue['name']])
+                deque(pending_requests[input_queue['name']]))
 
         # Delete submitted requests from their input queues
-        for input_queue in self.opts['input_queues']:
-            if to_delete[input_queue['name']]:
-                log.debug('Removing submitted jobs from input queue')
-                self.runners['queue.delete'](
-                    input_queue['name'],
-                    to_delete,
-                    input_queue['backend']
-                )
+        self.queue_reader.delete_jobs(to_delete)
 
     def update(self):
         '''
@@ -195,10 +152,12 @@ class SaltRequestManager(object):
 
 
 class InputQueueProcessor(object):
-    def __init__(self, input_queue, queues, requests):
-        self.requests = requests
+    def __init__(self, input_queue, parent):
+        self.requests = parent.requests[input_queue]
         self.input_queue = input_queue
-        self.run_queue = queues[input_queue]
+        self.run_queue = parent.queues[input_queue]
+        self.clients = parent.clients
+        self.jid_req_map = parent.jid_req_map
 
     def init_request(self, request):
         '''
@@ -222,10 +181,14 @@ class InputQueueProcessor(object):
         '''
         Submit any pending requests if
         there's space in the queue
+        :param requests The pending request
+        :type requests ``collections.deque``
         :return The requests that we submitted
         :rtype List
         '''
         submitted_requests = []
+        log.debug('submitting pending jobs for input queue = %s',
+                  self.input_queue)
         while len(requests) > 0 and not self.run_queue.is_full():
             request = deepcopy(requests.popleft())
             log.debug('Submitting request %s', str(request))
@@ -243,6 +206,9 @@ class InputQueueProcessor(object):
 
             # Let the callers know which requests we were able
             # to submit
-            submitted_requests.append(request)
+            submitted_requests.append(request['request_id'])
+
+            # update the jid to request_id map
+            self.jid_req_map[request['jid']] = request['request_id']
 
         return submitted_requests
