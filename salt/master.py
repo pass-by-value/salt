@@ -73,8 +73,6 @@ import salt.utils.zeromq
 import salt.utils.jid
 from salt.defaults import DEFAULT_TARGET_DELIM
 from salt.exceptions import FileserverConfigError
-from salt.loader import runner
-from salt.request_queuing.salt_job_manager import SaltJobManager
 from salt.transport import iter_transport_opts
 from salt.utils.debug import (
     enable_sigusr1_handler, enable_sigusr2_handler, inspect_stack
@@ -231,23 +229,12 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
         # Clean out pub auth
         salt.daemons.masterapi.clean_pub_auth(self.opts)
 
-        log.debug('*'*100)
-        log.debug(self.opts['input_queue'])
-        request_manager = SaltJobManager(
-            capacity=20,
-            runner_client=salt.runner.RunnerClient(self.opts),
-            runners=runner(self.opts),
-            opts=self.opts
-        )
-
         old_present = set()
         while True:
             now = int(time.time())
             if (now - last) >= self.loop_interval:
                 salt.daemons.masterapi.clean_old_jobs(self.opts)
                 salt.daemons.masterapi.clean_expired_tokens(self.opts)
-                request_manager.poll()
-                # request_manager.update()
 
             self.handle_search(now, last)
             self.handle_git_pillar()
