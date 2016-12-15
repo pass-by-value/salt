@@ -239,7 +239,8 @@ class SaltRequestManagerTestCase(TestCase):
         1. Removes request from run queue - that way new ones can be added
         2. Removes request from known requests - so we don't accumulate memory
            over time
-        3. Removes 
+        3. Removes entries from jid_req_map - so we don't accumulate memory
+           over time
         '''
         opts = master_config('/etc/salt/master')
         opts.update({
