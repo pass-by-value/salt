@@ -3,6 +3,8 @@
 Event data fixture.
 '''
 
+from __future__ import absolute_import
+
 
 def get_events(jid):
     '''
