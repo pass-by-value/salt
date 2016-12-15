@@ -12,7 +12,7 @@ def get_events(jid):
         'tag': jid,
         'data': {
             '_stamp': '2016-12-08T16:47:05.305210',
-            'minions': ['abstraction.local']
+            'minions': ['saltvm']
         }
     }, {
         'tag': 'salt/job/{0}/new'.format(jid),
@@ -21,13 +21,13 @@ def get_events(jid):
             'jid': '{0}'.format(jid),
             'tgt': '*.local',
             '_stamp': '2016-12-08T16:47:05.305601',
-            'user': 'sudo_adi',
+            'user': 'salt',
             'arg': [],
             'fun': 'test.ping',
-            'minions': ['abstraction.local']
+            'minions': ['saltvm']
         }
     }, {
-        'tag': 'salt/job/{0}/ret/abstraction.local'.format(jid),
+        'tag': 'salt/job/{0}/ret/saltvm'.format(jid),
         'data': {
             'fun_args': [],
             'jid': jid,
@@ -37,7 +37,7 @@ def get_events(jid):
             'cmd': '_return',
             '_stamp': '2016-12-08T16:47:05.374480',
             'fun': 'test.ping',
-            'id': 'abstraction.local',
+            'id': 'saltvm',
             'metadata': {
                 'foo': 'bar'
             }

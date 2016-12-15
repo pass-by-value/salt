@@ -7,18 +7,17 @@ and throttling.
 # Import python libs
 from __future__ import absolute_import
 from collections import deque
-import logging
-import six
 from copy import deepcopy
+import logging
+import re
 
 # Import salt libs
-from salt.client import LocalClient
 from salt.runner import RunnerClient
 from salt.wheel import WheelClient
 from salt.cloud import CloudClient
 from salt.utils.jid import gen_jid
-
 from .run_queue import RunQueue
+from . import event_utils
 
 STATE_RUNNING = 'running'
 
@@ -32,6 +31,9 @@ class SaltRequestManager(object):
     Salt job manager
     '''
     def __init__(self, opts, queue_reader=None):
+        '''
+        Init data structures and processors
+        '''
         self.opts = opts
         self.queues = dict(self._instantiate_queues())
         self.clients = self._instantiate_clients()
@@ -47,6 +49,14 @@ class SaltRequestManager(object):
 
         self.input_processors = self.init_input_processors()
 
+        self.event_processor = EventProcessor(self)
+
+    def get_req_if_exists(self, jid):
+        '''
+        Get a request id for this jid if it exists
+        None otherwise
+        '''
+        return self.jid_req_map.get(jid, None)
 
     def get_request(self, input_queue, request_id):
         '''
@@ -93,9 +103,6 @@ class SaltRequestManager(object):
             'cloud':    CloudClient(opts=self.opts),
         }
 
-    # re.match('salt/job/[0-9]{20}/ret', 'salt/job/20161208114705304086/new')
-    # x = re.match('salt/job/([0-9]{20})/ret', 'salt/job/20161208114705304086/ret/foo.bar')
-
     def initialize_request(self, input_queue, low):
         '''
         Get the request dictionary
@@ -141,18 +148,64 @@ class SaltRequestManager(object):
         '''
         # Process events to detect job finish
         log.debug('Called SaltJobManager update method')
-        if len(self.run_queue) > 0:
-            log.debug('There are jobs in the run queue')
-            cached_jobs = self.runners['jobs.list_jobs'](
-                search_metadata={'foo': 'bar'}
-            )
-            for job in six.iterkeys(cached_jobs):
-                log.debug('Popping job %s off of the run queue', job)
-                self.run_queue.remove(job)
+
+        for req_id, queue, jid in self.event_processor.parse_events():
+            log.debug('Completed request %s from queue %s',
+                      req_id,
+                      queue)
+            # Remove this job from the run queue
+            self.queues[queue].remove(jid)
+            # Remove this job from requests
+            self.requests[queue].pop(req_id)
+            # Remove this from the jid_req_map
+            self.jid_req_map.pop(jid)
+
+
+class EventProcessor(object):
+    '''
+    Process events to determine request completion
+    '''
+    def __init__(self, parent):
+        '''
+        Init event source
+        '''
+        self.parent = parent
+
+        self.event_source = event_utils.get_event_source(parent.opts)
+
+        self.ret_re = re.compile('salt/job/([0-9]{20})/ret')
+
+    def get_pending_events(self):
+        '''
+        Get the events we haven't seen so far
+        '''
+        return event_utils.get_pending_events(self.event_source)
+
+    def parse_events(self):
+        '''
+        Get the request id, queue and jid tuple for all complete events
+        '''
+        completed_requests = []
+        for event in self.get_pending_events():
+            match = re.match(self.ret_re, event['tag'])
+            if match:
+                jid = match.groups()[0]
+                if self.parent.get_req_if_exists(jid):
+                    req_id, queue = self.parent.get_req_if_exists(jid)
+                    completed_requests.append((req_id, queue, jid))
+        return completed_requests
 
 
 class InputQueueProcessor(object):
+    '''
+    Submits jobs from input queue to salt,
+    updates the run queue and cleans up the
+    input queue
+    '''
     def __init__(self, input_queue, parent):
+        '''
+        Get references to tracking data structures
+        '''
         self.requests = parent.requests[input_queue]
         self.input_queue = input_queue
         self.run_queue = parent.queues[input_queue]
@@ -209,6 +262,7 @@ class InputQueueProcessor(object):
             submitted_requests.append(request['request_id'])
 
             # update the jid to request_id map
-            self.jid_req_map[request['jid']] = request['request_id']
+            self.jid_req_map[request['jid']] =\
+                request['request_id'], self.input_queue
 
         return submitted_requests

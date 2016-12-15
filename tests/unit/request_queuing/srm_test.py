@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 '''
-    tests.unit.run_queuing.salt_job_manager_test
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    tests.unit.run_queuing.salt_request_manager_test
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 
 # Import Python libs
 from __future__ import absolute_import
-import six
+
 # Import Salt Testing libs
 from salttesting.unit import TestCase
 from salttesting.helpers import ensure_in_syspath
 from salttesting.mock import MagicMock
+import six
 
 # Import salt libs
 from salt.config import master_config
@@ -20,7 +21,7 @@ from .event_data import get_events
 ensure_in_syspath('../../')
 
 
-class SaltRequestManagerTest(TestCase):
+class SaltRequestManagerTestCase(TestCase):
     '''
     Test salt request manager
     '''
@@ -234,140 +235,45 @@ class SaltRequestManagerTest(TestCase):
 
     def test_update(self):
         '''
-        Test the update method marks jobs as complete
+        Test the update method
+        1. Removes request from run queue - that way new ones can be added
+        2. Removes request from known requests - so we don't accumulate memory
+           over time
+        3. Removes 
         '''
         opts = master_config('/etc/salt/master')
         opts.update({
             'input_queues': [{
                 'name': 'foo',
                 'capacity': 16,
-            }, {
-                'name': 'bar',
-                'capacity': 16,
             }]
         })
         queue_reader = MagicMock()
+        queue_reader.read_all_queues = self._queue_with_jobs
+        queue_reader.delete_jobs = MagicMock()
+
+        req_id, data = self._queue_with_jobs()
+        queue_reader = MagicMock()
         # this supplies requests
-        queue_reader.read_all_queues = self._queue_reader
-        queue_reader.delete_jobs = lambda x: x
+        queue_reader.read_all_queues = MagicMock(return_value=data)
+        queue_reader.delete_jobs = MagicMock()
 
         manager = SaltRequestManager(opts, queue_reader)
         manager.poll()
-    # def test_pending_jobs(self):
-    #     '''
-    #     Test paths when there are pending jobs
-    #     '''
-    #     job_mgr = SaltJobManager(10)
-    #     job_mgr.submit_one = lambda x: x
-    #     to_del = job_mgr.submit_pending(deque([1, 2, 3, 4]))
-    #     self.assertEqual(to_del, [1, 2, 3, 4])
-    #     # make sure jobs are added to the run queue
-    #     self.assertEqual(len(job_mgr.run_queue), 4)
-    #
-    # def test_run_queue_full(self):
-    #     '''
-    #     Test it doesn't add when run queue is full
-    #     '''
-    #     job_mgr = SaltJobManager(4)
-    #     job_mgr.submit_one = lambda x: x
-    #     # fill up the run queue
-    #     job_mgr.submit_pending(deque([1, 2, 3, 4]))
-    #
-    #     # try to submit more jobs
-    #     to_del = job_mgr.submit_pending(deque([1, 2, 3, 4]))
-    #     self.assertEqual(to_del, [])
-    #     self.assertEqual(len(job_mgr.run_queue), 4)
-    #
-    # def test_poll_calls_queue_runner(self):
-    #     '''
-    #     Make sure that the queue runner is called
-    #     to get a list of pending jobs
-    #     '''
-    #     opts = {
-    #         'input_queue': {
-    #             'name': 'input_queue',
-    #             'backend': 'sqlite',
-    #         }
-    #     }
-    #     mock_list = MagicMock(return_value=[])
-    #     mock_del = MagicMock(return_value=[])
-    #     runners = {
-    #         'queue.list_items': mock_list,
-    #         'queue.delete': mock_del,
-    #     }
-    #     mgr = SaltJobManager(1, opts=opts, runners=runners)
-    #     mgr.submit_one = lambda x: x
-    #     mgr.poll()
-    #     self.assertEqual(mock_list.called, True)
-    #     self.assertEqual(mock_del.called, False)
-    #
-    # def test_calls_queue_delete(self):
-    #     '''
-    #     Make sure that the queue delete path is called
-    #     after jobs are submitted
-    #     '''
-    #     opts = {
-    #         'input_queue': {
-    #             'name': 'input_queue',
-    #             'backend': 'sqlite',
-    #         }
-    #     }
-    #     mock_list = MagicMock(return_value=[1, 2, 3])
-    #     mock_del = MagicMock(return_value=[])
-    #     runners = {
-    #         'queue.list_items': mock_list,
-    #         'queue.delete': mock_del,
-    #     }
-    #     mgr = SaltJobManager(capacity=1, opts=opts, runners=runners)
-    #     mgr.submit_one = lambda x: x
-    #     mgr.poll()
-    #     self.assertEqual(mock_del.called, True)
-    #
-    # def test_it_calls_async_on_runner_client(self):
-    #     '''
-    #     Instantiate it can be instantiated
-    #     with a runner client
-    #     '''
-    #     # runner_client = RunnerClient(master_config('/etc/salt/master'))
-    #     runner_client = MagicMock()
-    #     runner_client.async = MagicMock(return_value={
-    #         'jid': '20161103110134203443',
-    #         'tag': 'salt/run/20161103110134203443',
-    #     })
-    #     mgr = SaltJobManager(runner_client=runner_client)
-    #     requests = deque([{
-    #         'low': '123'
-    #     }])
-    #     mgr.submit_pending(requests)
-    #     self.assertEqual(runner_client.async.called, True)
-    #
-    # def test_it_pops_jobs_off_the_run_queue(self):
-    #     '''
-    #     Make sure that finished jobs are removed from
-    #     the run queue and jobs that are still running
-    #     stay in the run queue
-    #     '''
-    #     runners = {
-    #         'jobs.list_jobs': MagicMock(return_value={'1': {}, '2': {}})
-    #     }
-    #     opts = {
-    #         'metadata': ''
-    #     }
-    #     mgr = SaltJobManager(
-    #         runner_client=MagicMock(),
-    #         opts=opts,
-    #         runners=runners
-    #     )
-    #     mgr.run_queue.add('1')
-    #     mgr.run_queue.add('2')
-    #     mgr.run_queue.add('3')
-    #
-    #     mgr.update()
-    #     self.assertEqual(len(mgr.run_queue), 1)
-    #     self.assertEqual('1' in mgr.run_queue, False)
-    #     self.assertEqual('2' in mgr.run_queue, False)
-    #     self.assertEqual('3' in mgr.run_queue, True)
+        # Now we have requests in the run queue
+        request = manager.get_request('foo', req_id)[0]
+        manager.event_processor.get_pending_events =\
+            MagicMock(return_value=get_events(request['jid']))
+        manager.update()
+
+        # Make sure that the job is removed from run queue
+        self.assertEqual(request['jid'] in manager.queues['foo'],
+                         False)
+        # Remove this job from requests
+        self.assertEqual(request['request_id'] in manager.requests, False)
+        # Remove this job from map
+        self.assertEqual(request['jid'] in manager.jid_req_map, False)
 
 if __name__ == '__main__':
     from integration import run_tests
-    run_tests(SaltRequestManagerTest, needs_daemon=False)
+    run_tests(SaltRequestManagerTestCase, needs_daemon=False)
