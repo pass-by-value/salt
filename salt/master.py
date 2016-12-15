@@ -235,7 +235,6 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
             if (now - last) >= self.loop_interval:
                 salt.daemons.masterapi.clean_old_jobs(self.opts)
                 salt.daemons.masterapi.clean_expired_tokens(self.opts)
-
             self.handle_search(now, last)
             self.handle_git_pillar()
             self.handle_schedule()
