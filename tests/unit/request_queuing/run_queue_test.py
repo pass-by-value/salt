@@ -6,7 +6,6 @@
 
 # Import Python libs
 from __future__ import absolute_import
-import ssl
 
 # Import Salt Testing libs
 from salttesting.unit import TestCase
