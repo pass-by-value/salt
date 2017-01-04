@@ -73,6 +73,8 @@ import salt.utils.zeromq
 import salt.utils.jid
 from salt.defaults import DEFAULT_TARGET_DELIM
 from salt.exceptions import FileserverConfigError
+from salt.request_queuing.salt_request_manager import SaltRequestManager
+from salt.request_queuing.queue_reader import QueueReader
 from salt.transport import iter_transport_opts
 from salt.utils.debug import (
     enable_sigusr1_handler, enable_sigusr2_handler, inspect_stack
@@ -241,10 +243,24 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
             self.handle_key_cache()
             self.handle_presence(old_present)
             self.handle_key_rotate(now)
+            self.handle_req_manager()
             salt.daemons.masterapi.fileserver_update(self.fileserver)
             salt.utils.verify.check_max_open_files(self.opts)
             last = now
             time.sleep(self.loop_interval)
+
+    def handle_req_manager(self):
+        '''
+        Salt request and throttling manager
+        :return:
+        '''
+        if not self.mgr:
+            queue_reader = QueueReader(
+                self.opts['input_queues'],
+                self.runners
+            )
+            self.mgr = SaltRequestManager(self.opts, queue_reader)
+
 
     def handle_search(self, now, last):
         '''

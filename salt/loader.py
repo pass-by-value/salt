@@ -822,6 +822,19 @@ def runner(opts, utils=None):
     return ret
 
 
+def salt_req_mgr(opts):
+    '''
+    Salt request manager
+    '''
+    ret = LazyLoader(
+        _module_dirs(opts, 'request_queuing'),
+        opts,
+        tag='request_queuing',
+    )
+    ret.pack['__req__'] = ret
+    return ret
+
+
 def queues(opts):
     '''
     Directly call a function inside a loader directory
