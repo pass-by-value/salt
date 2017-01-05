@@ -65,3 +65,14 @@ class QueueReader(object):
             backend=BACKEND
         )
         log.debug('Saved request to db')
+
+    def update_request(self, queue, old, new):
+        '''
+        Update the request state
+        '''
+        log.debug('Deleting request')
+        self.delete_jobs({queue: old})
+        log.debug('Deleted old request')
+
+        self.save_request(queue, new)
+        log.debug('Request updated!')
