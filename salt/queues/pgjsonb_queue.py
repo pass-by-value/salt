@@ -126,9 +126,12 @@ def _list_items(queue):
     with _conn() as cur:
         cmd = 'SELECT data FROM {0}'.format(queue)
         log.debug('SQL Query: {0}'.format(cmd))
-        cur.execute(cmd)
-        contents = cur.fetchall()
-        return contents
+        try:
+            cur.execute(cmd)
+            contents = cur.fetchall()
+            return contents
+        except psycopg2.ProgrammingError as err:
+            log.warn('%s', err)
 
 
 def list_queues():
@@ -145,9 +148,18 @@ def list_items(queue):
     List contents of a queue
     '''
     itemstuple = _list_items(queue)
-    items = [item[0] for item in itemstuple]
-    return items
+    if itemstuple:
+        items = [item[0] for item in itemstuple]
+        return items
 
+'''
+from salt.config import master_config
+from salt.loader import runner
+from salt.request_queuing.queue_reader import QueueReader
+opts = master_config('/etc/salt/master')
+runners = runner(opts)
+queue_reader = QueueReader(opts['input_queues'], runners)
+'''
 
 def list_length(queue):
     '''

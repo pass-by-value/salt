@@ -117,9 +117,17 @@ class SaltRequestManager(object):
             'request_id': request_id,
             'state': STATE_NEW,
         }
-        log.debug('New request initialized')
+        # Add this to the db
+        self.save_to_db(input_queue, request)
         self.input_processors[input_queue].init_request(request)
+        log.debug('New request initialized')
         return request_id
+
+    def save_to_db(self, queue, request):
+        '''
+        Save this to the db
+        '''
+        self.queue_reader.save_request(queue, request)
 
     def poll(self):
         '''
@@ -217,6 +225,9 @@ class InputQueueProcessor(object):
         :param request: Salt's low data
         :return: Dictionary for request tracking
         '''
+        # TODO: This should put the request in the database
+        queue = request['input_queue']
+
         self.requests.setdefault(
             request['request_id'], []).append(request)
 
@@ -246,8 +257,11 @@ class InputQueueProcessor(object):
             request = deepcopy(requests.popleft())
             log.debug('Submitting request %s', str(request))
             # submit request to salt
-            jid = self._submit_one(request)  # the salt jid
-
+            try:
+                jid = self._submit_one(request)  # the salt jid
+            except Exception:
+                log.error('Error submitting request %s', request)
+                continue
             # Update the run queue
             self.run_queue.add(jid)
 

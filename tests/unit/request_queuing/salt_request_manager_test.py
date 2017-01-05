@@ -63,7 +63,7 @@ class SaltRequestManagerTestCase(TestCase):
                 'capacity': 16,
             }]
         })
-        req_mgr = SaltRequestManager(opts)
+        req_mgr = SaltRequestManager(opts, MagicMock())
         # Create a new request object internally
         # and return the request id
         req_id = req_mgr.initialize_request(
@@ -107,7 +107,7 @@ class SaltRequestManagerTestCase(TestCase):
                 'capacity': 7,
             }]
         })
-        req_mgr = SaltRequestManager(opts)
+        req_mgr = SaltRequestManager(opts, MagicMock())
 
         id_foo1 = req_mgr.initialize_request('foo', {
             'fun': 'foo.bar',
@@ -148,6 +148,7 @@ class SaltRequestManagerTestCase(TestCase):
         # this supplies requests
         queue_reader.read_all_queues = self._queue_reader
         queue_reader.delete_jobs = lambda x: x
+        queue_reader.save_request = lambda x: x
 
         manager = SaltRequestManager(opts, queue_reader)
         manager.poll()
@@ -170,6 +171,7 @@ class SaltRequestManagerTestCase(TestCase):
         queue_reader = MagicMock()
         queue_reader.read_all_queues = self._queue_reader
         queue_reader.delete_jobs = lambda x: x  # Don't care what this does
+        queue_reader.save_request = lambda x: x  # Don't care what this does
 
         manager = SaltRequestManager(opts, queue_reader)
         manager.poll()
@@ -191,7 +193,10 @@ class SaltRequestManagerTestCase(TestCase):
                 'capacity': 16,
             }]
         })
-        req_mgr = SaltRequestManager(opts)
+        req_mgr = SaltRequestManager(
+            opts,
+            queue_reader=MagicMock()
+        )
 
         id_foo1 = req_mgr.initialize_request('foo', {
             'fun': 'foo.bar',
@@ -227,8 +232,9 @@ class SaltRequestManagerTestCase(TestCase):
         # this supplies requests
         queue_reader.read_all_queues = MagicMock(return_value=data)
         queue_reader.delete_jobs = MagicMock()
+        queue_reader.save_request = MagicMock()
 
-        manager = SaltRequestManager(opts, queue_reader)
+        manager = SaltRequestManager(opts, queue_reader=queue_reader)
         manager.poll()
         # make sure that only one job was submitted
         queue_reader.delete_jobs.assert_called_with({'foo': [req_id]})
