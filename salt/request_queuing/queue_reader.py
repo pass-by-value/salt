@@ -36,7 +36,7 @@ class QueueReader(object):
                 backend=BACKEND
             )
             if reqs:
-                pending[queue['name']] = reqs[queue['capacity']]
+                pending[queue['name']] = reqs[0:queue['capacity']]
         return pending
 
     def delete_jobs(self, to_delete):

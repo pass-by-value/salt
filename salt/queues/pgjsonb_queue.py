@@ -156,9 +156,11 @@ def list_items(queue):
 from salt.config import master_config
 from salt.loader import runner
 from salt.request_queuing.queue_reader import QueueReader
+from salt.request_queuing.salt_request_manager import SaltRequestManager
 opts = master_config('/etc/salt/master')
 runners = runner(opts)
 queue_reader = QueueReader(opts['input_queues'], runners)
+mgr = SaltRequestManager(opts, queue_reader=queue_reader)
 '''
 
 def list_length(queue):
