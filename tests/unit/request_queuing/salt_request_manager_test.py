@@ -63,7 +63,9 @@ class SaltRequestManagerTestCase(TestCase):
                 'capacity': 16,
             }]
         })
-        req_mgr = SaltRequestManager(opts, MagicMock())
+        reader = MagicMock()
+        reader.save_request = MagicMock()
+        req_mgr = SaltRequestManager(opts, reader)
         # Create a new request object internally
         # and return the request id
         req_id = req_mgr.initialize_request(
@@ -73,6 +75,8 @@ class SaltRequestManagerTestCase(TestCase):
             }
         )
         self.assertEqual(len(req_id), 20)
+        # Assert that save to db is called
+        reader.save_request.assert_called()
 
         # check that the correct data structure is returned
         self.assertEqual(
