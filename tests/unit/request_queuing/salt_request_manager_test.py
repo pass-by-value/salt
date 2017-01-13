@@ -78,21 +78,6 @@ class SaltRequestManagerTestCase(TestCase):
         # Assert that save to db is called
         reader.save_request.assert_called()
 
-        # check that the correct data structure is returned
-        self.assertEqual(
-            req_mgr.get_request('foo',  req_id),
-            [{
-                'state': 'new',
-                'jid': None,
-                'request_id': req_id,
-                'low': {
-                    'fun': 'jobs.list_jobs',
-                    'client': 'runner'
-                },
-                'input_queue': 'foo'
-            }]
-        )
-
     @staticmethod
     def _queue_reader():
         '''
@@ -101,37 +86,42 @@ class SaltRequestManagerTestCase(TestCase):
         :return: Dict keyed by input_queue name
         :rtype Dict
         '''
-        opts = master_config('/etc/salt/master')
-        opts.update({
-            'input_queues': [{
-                'name': 'foo',
-                'capacity': 16,
-            }, {
-                'name': 'bar',
-                'capacity': 7,
-            }]
-        })
-        req_mgr = SaltRequestManager(opts, MagicMock())
-
-        id_foo1 = req_mgr.initialize_request('foo', {
-            'fun': 'foo.bar',
-            'client': 'runner',
-        })
-        id_foo2 = req_mgr.initialize_request('foo', {
-            'fun': 'jobs.list_jobs',
-            'client': 'runner',
-        })
-        id_bar = req_mgr.initialize_request('bar', {
-            'fun': 'jobs.list_jobs',
-            'client': 'runner',
-        })
-
-        foo_req = req_mgr.get_request('foo', id_foo1)
-        foo_req.extend(req_mgr.get_request('foo', id_foo2))
-        bar_req = req_mgr.get_request('bar', id_bar)
-
-        # Expected format allowing batch operation
-        return {'foo': foo_req, 'bar': bar_req}
+        return {
+            'foo': [
+                {
+                    'low': {
+                        'fun': 'jobs.list_jobs',
+                        'client': 'runner'
+                    },
+                    'state': 'new',
+                    'input_queue': 'foo',
+                    'jid': None,
+                    'request_id': '20170112231706473265'
+                },
+                {
+                    'low': {
+                        'fun': 'jobs.list_jobs',
+                        'client': 'runner'
+                    },
+                    'state': 'new',
+                    'input_queue': 'foo',
+                    'jid': None,
+                    'request_id': '20170112231706473212'
+                }
+            ],
+            'bar': [
+                {
+                    'low': {
+                        'fun': 'jobs.list_jobs',
+                        'client': 'runner'
+                    },
+                    'state': 'new',
+                    'input_queue': 'bar',
+                    'jid': None,
+                    'request_id': '20170112231706473234'
+                }
+            ]
+        }
 
     def test_poll(self):
         '''
@@ -190,30 +180,20 @@ class SaltRequestManagerTestCase(TestCase):
         :return: Dict keyed by input_queue name
         :rtype Dict
         '''
-        opts = master_config('/etc/salt/master')
-        opts.update({
-            'input_queues': [{
-                'name': 'foo',
-                'capacity': 16,
-            }]
-        })
-        req_mgr = SaltRequestManager(
-            opts,
-            queue_reader=MagicMock()
-        )
-
-        id_foo1 = req_mgr.initialize_request('foo', {
-            'fun': 'foo.bar',
-            'client': 'runner',
-        })
-        id_foo2 = req_mgr.initialize_request('foo', {
-            'fun': 'jobs.list_jobs',
-            'client': 'runner',
-        })
-
-        foo_req = req_mgr.get_request('foo', id_foo1)
-        foo_req.extend(req_mgr.get_request('foo', id_foo2))
-        return id_foo1, {'foo': foo_req}
+        return {
+            'foo': [
+                {
+                    'low': {
+                        'fun': 'jobs.list_jobs',
+                        'client': 'runner'
+                    },
+                    'state': 'new',
+                    'input_queue': 'foo',
+                    'jid': None,
+                    'request_id': '20170112231706473265'
+                },
+            ]
+        }
 
     def test_calls_delete_on_submitted_jobs(self):
         '''
@@ -231,7 +211,7 @@ class SaltRequestManagerTestCase(TestCase):
         queue_reader.read_all_queues = self._queue_with_jobs
         queue_reader.delete_jobs = MagicMock()
 
-        req_id, data = self._queue_with_jobs()
+        data = self._queue_with_jobs()
         queue_reader = MagicMock()
         # this supplies requests
         queue_reader.read_all_queues = MagicMock(return_value=data)
@@ -241,7 +221,7 @@ class SaltRequestManagerTestCase(TestCase):
         manager = SaltRequestManager(opts, queue_reader=queue_reader)
         manager.poll()
         # make sure that only one job was submitted
-        queue_reader.delete_jobs.assert_called_with({'foo': [req_id]})
+        queue_reader.delete_jobs.assert_called_with({'foo': [data['foo'][0]]})
 
     def test_update(self):
         '''
@@ -259,11 +239,8 @@ class SaltRequestManagerTestCase(TestCase):
                 'capacity': 16,
             }]
         })
-        queue_reader = MagicMock()
-        queue_reader.read_all_queues = self._queue_with_jobs
-        queue_reader.delete_jobs = MagicMock()
 
-        req_id, data = self._queue_with_jobs()
+        data = self._queue_with_jobs()
         queue_reader = MagicMock()
         # this supplies requests
         queue_reader.read_all_queues = MagicMock(return_value=data)
@@ -272,7 +249,7 @@ class SaltRequestManagerTestCase(TestCase):
         manager = SaltRequestManager(opts, queue_reader)
         manager.poll()
         # Now we have requests in the run queue
-        request = manager.get_request('foo', req_id)[0]
+        request = manager.get_request('foo', '20170112231706473265')[0]
         manager.event_processor.get_pending_events =\
             MagicMock(return_value=get_events(request['jid']))
         manager.update()

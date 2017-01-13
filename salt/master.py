@@ -232,6 +232,15 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
         salt.daemons.masterapi.clean_pub_auth(self.opts)
 
         old_present = set()
+
+        # Instantiate the salt request manager
+        runners = salt.loader.runner(self.opts)
+        log.debug('Instantiating salt request manager')
+        reader = QueueReader(self.opts['input_queues'], runners)
+        mgr = SaltRequestManager(
+            self.opts,
+            reader
+        )
         while True:
             now = int(time.time())
             if (now - last) >= self.loop_interval:
@@ -243,24 +252,15 @@ class Maintenance(SignalHandlingMultiprocessingProcess):
             self.handle_key_cache()
             self.handle_presence(old_present)
             self.handle_key_rotate(now)
-            self.handle_req_manager()
             salt.daemons.masterapi.fileserver_update(self.fileserver)
             salt.utils.verify.check_max_open_files(self.opts)
+
+            # Call salt request manager periodically
+            mgr.update()
+            mgr.poll()
+
             last = now
             time.sleep(self.loop_interval)
-
-    def handle_req_manager(self):
-        '''
-        Salt request and throttling manager
-        :return:
-        '''
-        if not self.mgr:
-            queue_reader = QueueReader(
-                self.opts['input_queues'],
-                self.runners
-            )
-            self.mgr = SaltRequestManager(self.opts, queue_reader)
-
 
     def handle_search(self, now, last):
         '''

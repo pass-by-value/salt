@@ -131,7 +131,7 @@ def _list_items(queue):
             contents = cur.fetchall()
             return contents
         except psycopg2.ProgrammingError as err:
-            log.warn('%s', err)
+            log.debug('%s', err)
 
 
 def list_queues():
@@ -152,16 +152,6 @@ def list_items(queue):
         items = [item[0] for item in itemstuple]
         return items
 
-'''
-from salt.config import master_config
-from salt.loader import runner
-from salt.request_queuing.queue_reader import QueueReader
-from salt.request_queuing.salt_request_manager import SaltRequestManager
-opts = master_config('/etc/salt/master')
-runners = runner(opts)
-queue_reader = QueueReader(opts['input_queues'], runners)
-mgr = SaltRequestManager(opts, queue_reader=queue_reader)
-'''
 
 def list_length(queue):
     '''
@@ -243,7 +233,10 @@ def delete(queue, items):
             for item in items:
                 newitems.append((item,))
                 # we need a list of one item tuples here
-            cur.executemany(cmd, newitems)
+            try:
+                cur.executemany(cmd, newitems)
+            except Exception as err:
+                log.error('Got an error while inserting into db! %s', err)
     return True
 
 

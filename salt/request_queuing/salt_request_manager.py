@@ -51,7 +51,7 @@ class SaltRequestManager(object):
 
         self.event_processor = EventProcessor(self)
 
-    def get_req_if_exists(self, jid):
+    def get_req_for_jid(self, jid):
         '''
         Get a request id for this jid if it exists
         None otherwise
@@ -119,7 +119,7 @@ class SaltRequestManager(object):
         }
         # Add this to the db
         self.save_to_db(input_queue, request)
-        self.input_processors[input_queue].init_request(request)
+        # self.input_processors[input_queue].init_request(request)
         log.debug('New request initialized')
         return request_id
 
@@ -142,10 +142,18 @@ class SaltRequestManager(object):
         to_delete = {}
         # Try to submit requests for all queues
         for input_queue in self.opts['input_queues']:
-            to_delete[input_queue['name']] = \
-                self.input_processors[input_queue['name']].submit_pending(
-                deque(pending_requests[input_queue['name']]))
+            if input_queue['name'] in pending_requests:
+                all_submitted = self.input_processors[
+                    input_queue['name']].submit_pending(
+                    deque(pending_requests[input_queue['name']]))
 
+                copied = []
+                for req_id in all_submitted:
+                    req = deepcopy(self.get_request(input_queue['name'], req_id)[0])
+                    # so that it gets removed from the queue
+                    req['jid'] = None
+                    copied.append(req)
+                to_delete[input_queue['name']] = copied
         # Delete submitted requests from their input queues
         self.queue_reader.delete_jobs(to_delete)
 
@@ -175,13 +183,13 @@ class EventProcessor(object):
     '''
     def __init__(self, parent):
         '''
-        Init event source
+        Init event source this event source
         '''
         self.parent = parent
 
         self.event_source = event_utils.get_event_source(parent.opts)
 
-        self.ret_re = re.compile('salt/job/([0-9]{20})/ret')
+        self.ret_re = re.compile('salt/(job|run)/([0-9]{20})/ret')
 
     def get_pending_events(self):
         '''
@@ -193,13 +201,19 @@ class EventProcessor(object):
         '''
         Get the request id, queue and jid tuple for all complete events
         '''
+        log.debug('Called parse events')
         completed_requests = []
         for event in self.get_pending_events():
             match = re.match(self.ret_re, event['tag'])
             if match:
-                jid = match.groups()[0]
-                if self.parent.get_req_if_exists(jid):
-                    req_id, queue = self.parent.get_req_if_exists(jid)
+                jid = match.groups()[1]
+                log.debug('Found a match for jid %s', jid)
+                if self.parent.get_req_for_jid(jid):
+                    req_id, queue = self.parent.get_req_for_jid(jid)
+                    log.debug('Adding request %s'
+                              ' of queue %s to completed requests',
+                              req_id,
+                              queue)
                     completed_requests.append((req_id, queue, jid))
         return completed_requests
 
@@ -225,9 +239,6 @@ class InputQueueProcessor(object):
         :param request: Salt's low data
         :return: Dictionary for request tracking
         '''
-        # TODO: This should put the request in the database
-        queue = request['input_queue']
-
         self.requests.setdefault(
             request['request_id'], []).append(request)
 
@@ -237,9 +248,12 @@ class InputQueueProcessor(object):
         calls the async method on the client
         '''
         log.debug('About to submit request to salt')
-        return self.clients[request['low']['client'].lower()].async(
-            request, {}
-        )['jid']
+        try:
+            return self.clients[request['low']['client'].lower()].async(
+                request['low']['fun'], request['low']
+            )['jid']
+        except Exception as err:
+            log.error('Got an error!! %s', err)
 
     def submit_pending(self, requests):
         '''
@@ -265,16 +279,15 @@ class InputQueueProcessor(object):
             # Update the run queue
             self.run_queue.add(jid)
 
+            # Let the callers know which requests we were able
+            # to submit
+            submitted_requests.append(request['request_id'])
+
             # Update the request dict used for tracking
             request.update({'jid': jid})
             self.requests.setdefault(
                 request['request_id'], []
             ).append(request)
-
-            # Let the callers know which requests we were able
-            # to submit
-            submitted_requests.append(request['request_id'])
-
             # update the jid to request_id map
             self.jid_req_map[request['jid']] =\
                 request['request_id'], self.input_queue
