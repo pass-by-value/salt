@@ -16,6 +16,7 @@ import six
 # Import salt libs
 from salt.config import master_config
 from salt.request_queuing.salt_request_manager import SaltRequestManager
+from salt.request_queuing import initialize_request
 from .event_data import get_events
 
 ensure_in_syspath('../../')
@@ -65,14 +66,15 @@ class SaltRequestManagerTestCase(TestCase):
         })
         reader = MagicMock()
         reader.save_request = MagicMock()
-        req_mgr = SaltRequestManager(opts, reader)
         # Create a new request object internally
         # and return the request id
-        req_id = req_mgr.initialize_request(
-            'foo', {
+        req_id = initialize_request(
+            'foo',
+            {
                 'fun':      'jobs.list_jobs',
                 'client':   'runner',
-            }
+            },
+            reader
         )
         self.assertEqual(len(req_id), 20)
         # Assert that save to db is called

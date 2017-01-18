@@ -15,13 +15,11 @@ import re
 from salt.runner import RunnerClient
 from salt.wheel import WheelClient
 from salt.cloud import CloudClient
-from salt.utils.jid import gen_jid
 from .run_queue import RunQueue
 from . import event_utils
 
 STATE_RUNNING = 'running'
 
-STATE_NEW = 'new'
 
 log = logging.getLogger(__name__)
 
@@ -102,32 +100,6 @@ class SaltRequestManager(object):
             'wheel':    WheelClient(opts=self.opts),
             'cloud':    CloudClient(opts=self.opts),
         }
-
-    def initialize_request(self, input_queue, low):
-        '''
-        Get the request dictionary
-        :return The request id
-        :rtype str
-        '''
-        request_id = gen_jid()
-        request = {
-            'input_queue': input_queue,
-            'low': low,
-            'jid': None,
-            'request_id': request_id,
-            'state': STATE_NEW,
-        }
-        # Add this to the db
-        self.save_to_db(input_queue, request)
-        # self.input_processors[input_queue].init_request(request)
-        log.debug('New request initialized')
-        return request_id
-
-    def save_to_db(self, queue, request):
-        '''
-        Save this to the db
-        '''
-        self.queue_reader.save_request(queue, request)
 
     def poll(self):
         '''

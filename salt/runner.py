@@ -17,6 +17,8 @@ import salt.utils.args
 import salt.utils.event
 from salt.client import mixins
 from salt.output import display_output
+from salt.request_queuing.queue_reader import QueueReader
+from salt.request_queuing import initialize_request
 from salt.utils.lazy import verify_fun
 
 log = logging.getLogger(__name__)
@@ -163,6 +165,15 @@ class Runner(RunnerClient):
             display_output('{0}:'.format(fun), 'text', self.opts)
             print(docs[fun])
 
+    def _validate_queue_name(self):
+        '''
+        :return: True
+        '''
+        names = (queue['name'] for queue in self.opts['input_queues'])
+        return any(
+            self.opts['queue'] == name for name in names
+        )
+
     # TODO: move to mixin whenever we want a salt-wheel cli
     def run(self):
         '''
@@ -183,7 +194,6 @@ class Runner(RunnerClient):
                 )
                 low['arg'] = args
                 low['kwarg'] = kwargs
-
                 if self.opts.get('eauth'):
                     if 'token' in self.opts:
                         try:
@@ -201,9 +211,9 @@ class Runner(RunnerClient):
                         res = resolver.cli(self.opts['eauth'])
                         if self.opts['mktoken'] and res:
                             tok = resolver.token_cli(
-                                    self.opts['eauth'],
-                                    res
-                                    )
+                                self.opts['eauth'],
+                                res
+                            )
                             if tok:
                                 low['token'] = tok.get('token', '')
                         if not res:
@@ -213,6 +223,29 @@ class Runner(RunnerClient):
                         low['eauth'] = self.opts['eauth']
                 else:
                     user = salt.utils.get_specific_user()
+
+                # Instantiate the salt request manager
+                runners = salt.loader.runner(self.opts)
+                log.debug('Instantiating salt request ')
+                if 'queue' in self.opts and self.opts['queue']:
+                    if not self._validate_queue_name():
+                        raise salt.exceptions.SaltRunnerError(
+                            'Invalid queue '
+                            'specified! Please check the salt '
+                            'master config file '
+                            'for a list of available queues.')
+                    reader = QueueReader(self.opts['input_queues'], runners)
+                    req_id = initialize_request(
+                        self.opts['queue'], low, reader)
+                    # This job was submitted to the
+                    # queue and we can now return
+                    return {
+                        'data': {
+                            'retcode': 0,
+                            'request_id': req_id,
+                        }
+
+                    }
 
                 # Allocate a jid
                 async_pub = self._gen_async_pub()
@@ -232,9 +265,9 @@ class Runner(RunnerClient):
                                                pub=async_pub)
                     # by default: info will be not enougth to be printed out !
                     log.warning('Running in async mode. Results of this execution may '
-                             'be collected by attaching to the master event bus or '
-                             'by examing the master job cache, if configured. '
-                             'This execution is running under tag {tag}'.format(**async_pub))
+                                'be collected by attaching to the master event bus or '
+                                'by examing the master job cache, if configured. '
+                                'This execution is running under tag {tag}'.format(**async_pub))
                     return async_pub['jid']  # return the jid
 
                 # otherwise run it in the main process
