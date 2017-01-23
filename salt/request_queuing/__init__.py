@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-Salt request queue management and job throttling
+Salt request management
 '''
 
 from __future__ import absolute_import
@@ -16,7 +16,8 @@ log = logging.getLogger(__name__)
 
 def initialize_request(input_queue, low, queue_reader):
     '''
-    Get the request dictionary
+    Get the request dictionary.
+    Clients can call this to submit a request to salt.
     :return The request id
     :rtype str
     '''

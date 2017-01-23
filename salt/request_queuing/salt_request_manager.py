@@ -1,7 +1,118 @@
 # -*- coding: utf-8 -*-
 '''
-Responsible submitting jobs, updating completion status
-and throttling.
+:depends:
+  - Postgresql databse
+  - Python postgresql driver
+  - Salt's pgjsonb queue module
+
+Installation
+------------
+
+- Install postgresql database.
+- Install the python postgresql driver and configure the pgjsonb queue
+  as shown in :ref:`setup <salt-returners.pgjsonb>`.
+
+Introduction
+------------
+
+
+Clients (like the CLI and the Salt API)
+can be used to submit jobs to Salt.
+As an example we could use the ``salt-run`` command
+to get a list of all the jobs in the cache.
+
+  .. code-block:: bash
+
+      salt-run jobs.list_jobs
+
+The request submitted above is executed by Salt
+immediately (assuming there are
+enough worker threads).
+
+There are, however cases when Salt
+might have idle workers,
+but some other underlying
+resources (perhaps out of Salt’s control)
+might be unavailable.
+One example is when we are interfacing with a chassis
+and all available blades
+are already in use. In this case users want
+Salt to queue up this request and execute the job
+as resources become available.
+Further, users also want the ability to impose
+an upper limit on the number of jobs
+running at any given point in time.
+It may be noted that we do not
+necessarily need to impose this limit on all jobs (just a subset).
+
+This module adds a queue based mechanism
+for tracking requests
+and imposing upper limits
+on the number of jobs
+of a given (arbitrary) type
+that can be running in the system
+at any given point in time.
+
+This queue based mechanism is backed
+by postgresql to hold json data structures.
+Postgresql interface is via salt's pgjsonb
+queue module.
+
+Queue Definition
+----------------
+
+Queues can be defined in the Salt master
+config file
+
+  .. code-block:: yaml
+
+      input_queues:
+        - name: salt_queue
+          capacity: 2
+        - name: testing
+          capacity: 16
+
+
+Submitting a salt run job to the queue
+--------------------------------------
+
+Jobs can be submitted to a queue using the ``salt-run``
+command
+
+  .. code-block:: yaml
+
+      $ salt-run jobs.list_jobs --queue salt_queue
+      # returns with a request id
+      $ request_id = 20170123104403777773
+
+In this case the ``jobs.list_jobs`` that we submitted doesn't
+execute immediately. It is submitted to the queue named ``salt_queue``.
+This module takes care of making sure that the submitted request
+is executed by Salt. As mentioned above we make sure that there
+are no more than ``capacity`` number of jobs
+running at any given point in time. In the above case, multiple
+users (say 10) could submit salt-run jobs to this queue at the same time.
+But at any given point in time there will only be at most 2 jobs running.
+
+
+Checking for job completion
+---------------------------
+
+At this time this module checks the event bus to
+determine when a job completes.
+Users can also watch the salt event bus to check the
+status of their jobs.
+
+
+Loop interval setting
+---------------------
+
+The frequency with which this module submits
+pending jobs for execution and tracks completion
+status is the same as ``loop_interval``
+(which can be set in the salt master config file).
+This can be varied as per your requirement.
+
 '''
 
 # Import python libs
