@@ -1,3 +1,5 @@
+.. _salt-returners.pgjsonb:
+
 ======================
 salt.returners.pgjsonb
 ======================
